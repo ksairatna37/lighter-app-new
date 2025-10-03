@@ -1,0 +1,52 @@
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Splash from "./pages/Splash";
+import Onboarding1 from "./pages/Onboarding1";
+import Onboarding2 from "./pages/Onboarding2";
+import Onboarding3 from "./pages/Onboarding3";
+import WalletConnect from "./pages/WalletConnect";
+import WalletConnectSuccess from "./pages/WalletConnectSuccess";
+import InviteOnly from "./pages/InviteOnly";
+import Dashboard from "./pages/Dashboard";
+import Deposit from "./pages/Deposit";
+import DepositSuccess from "./pages/DepositSuccess";
+import Farm from "./pages/Farm";
+import Trade from "./pages/Trade";
+import Referrals from "./pages/Referrals";
+import Profile from "./pages/Profile";
+import NotFound from "./pages/NotFound";
+
+const queryClient = new QueryClient();
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Splash />} />
+          <Route path="/onboarding/1" element={<Onboarding1 />} />
+          <Route path="/onboarding/2" element={<Onboarding2 />} />
+          <Route path="/onboarding/3" element={<Onboarding3 />} />
+          <Route path="/wallet-connect" element={<WalletConnect />} />
+          <Route path="/wallet-connect/success" element={<WalletConnectSuccess />} />
+          <Route path="/invite-only" element={<InviteOnly />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/deposit" element={<Deposit />} />
+          <Route path="/deposit/success" element={<DepositSuccess />} />
+          <Route path="/farm" element={<Farm />} />
+          <Route path="/trade" element={<Trade />} />
+          <Route path="/referrals" element={<Referrals />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
+
+export default App;
