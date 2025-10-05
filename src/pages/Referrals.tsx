@@ -3,10 +3,14 @@ import { Container } from "@/components/layout/Container";
 import { BottomNavigation } from "@/components/layout/BottomNavigation";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { ArrowLeft, Zap, Copy, Share2 } from "lucide-react";
+import { ArrowLeft, Copy, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-
+import logo from "@/assets/logo.png";
+import slice from "@/assets/Slice.png";
+import referbox from "@/assets/referbox.png";
+import and from "@/assets/and.png";
+import share from "@/assets/Share.png";
 const Referrals = () => {
   const [referralCode] = useState("G7215SDF");
   const { toast } = useToast();
@@ -16,7 +20,7 @@ const Referrals = () => {
     try {
       await navigator.clipboard.writeText(referralCode);
       toast({
-        title: "Code Copied!",
+        title: "🎯 Code Copied!",
         description: "Referral code copied to clipboard",
       });
     } catch (error) {
@@ -46,31 +50,38 @@ const Referrals = () => {
 
   return (
     <Container className="bg-background min-h-screen pb-24">
-      {/* Header */}
-      <div className="flex items-center justify-between py-6">
-        <button 
+      {/* Header - Matching Farm component style */}
+      <header className="flex items-center justify-between py-6">
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={() => navigate(-1)}
-          className="w-12 h-12 bg-golden-light rounded-full flex items-center justify-center"
+          className="h-10 w-10 bg-golden-light rounded-full hover:bg-golden-light/90"
         >
-          <ArrowLeft className="w-6 h-6 text-background" />
-        </button>
-        <h1 className="text-xl font-medium text-golden-light">Refer Stats</h1>
-        <Zap className="w-8 h-8 text-golden-light" />
-      </div>
+          <ArrowLeft className="w-8 h-8 text-background" />
+        </Button>
 
-      {/* Stats Card */}
+        <div className="text-center flex-1">
+          <h1 className="text-xl font-bold text-golden-light">Refer Stats</h1>
+          <p className="text-sm text-golden-light/80">earn together</p>
+        </div>
+
+        <img src={logo} alt="" className="h-8 w-auto" />
+      </header>
+
+      {/* Stats Card - Matching Farm component style */}
       <motion.div 
-        className="bg-card border border-border rounded-2xl p-6 mb-8"
+        className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-6"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
         <div className="flex justify-between items-center mb-4">
-          <span className="text-golden-light">Points Earned</span>
-          <span className="text-2xl font-bold text-golden-light">4.2</span>
+          <span className="text-golden-light font-extralight opacity-60">Points Earned</span>
+          <span className="text-golden-light font-bold">4.2</span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-golden-light">Remaining Referrals</span>
-          <span className="text-2xl font-bold text-golden-light">2/3</span>
+          <span className="text-golden-light font-extralight opacity-60">Remaining Referrals</span>
+          <span className="text-golden-light font-bold">2/3</span>
         </div>
       </motion.div>
 
@@ -81,41 +92,30 @@ const Referrals = () => {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.1 }}
       >
-        {/* Ticket Shape */}
-        <div className="relative w-full max-w-sm mb-6">
-          <svg viewBox="0 0 400 160" className="w-full">
-            <path
-              d="M 20 20 L 30 10 L 50 30 L 70 10 L 90 30 L 110 10 L 130 30 L 150 10 L 170 30 L 190 10 L 210 30 L 230 10 L 250 30 L 270 10 L 290 30 L 310 10 L 330 30 L 350 10 L 370 20 L 380 80 L 370 140 L 350 150 L 330 130 L 310 150 L 290 130 L 270 150 L 250 130 L 230 150 L 210 130 L 190 150 L 170 130 L 150 150 L 130 130 L 110 150 L 90 130 L 70 150 L 50 130 L 30 150 L 20 140 Z"
-              fill="hsl(var(--golden-light))"
-            />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <div className="text-6xl font-black text-background mb-1">10%</div>
-            <div className="text-lg font-medium text-background">of earned points</div>
-          </div>
+        {/* Ticket Shape - Updated with golden theme */}
+        <div className="relative w-full max-w-sm mb-6 items-center flex justify-center">
+          <img src={referbox} alt="" className="h-120 w-auto" />
         </div>
 
-        <p className="text-lg text-golden-light text-center mb-8">
-          You get 10% of their earned points
+        <p className="text-lg text-golden-light text-center mb-8 font-extralight">
+          You get <span className="font-bold text-golden-light">10%</span> of their earned points
         </p>
 
-        {/* Divider */}
+        {/* Divider - Matching golden theme */}
         <div className="flex items-center gap-4 w-full max-w-sm mb-8">
-          <div className="flex-1 h-px bg-border"></div>
-          <div className="flex items-center gap-2">
-            <span className="text-golden-light text-xs">★</span>
-            <span className="text-4xl font-serif text-golden-light">&</span>
-            <span className="text-golden-light text-xs">★</span>
+          <div className="flex-1 h-px bg-golden-light/20"></div>
+          <div className="flex items-center gap">
+            <img src={and} alt="" className="h-18 w-auto" />
           </div>
-          <div className="flex-1 h-px bg-border"></div>
+          <div className="flex-1 h-px bg-golden-light/20"></div>
         </div>
 
-        <p className="text-base text-foreground text-center mb-8">
+        <p className="text-lg font-extralight text-foreground text-center mb-8">
           Your friend gets <span className="font-bold text-golden-light">1 bonus point</span> on signup
         </p>
       </motion.div>
 
-      {/* Share Button */}
+      {/* Share Button - Matching Farm component style */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -124,25 +124,69 @@ const Referrals = () => {
       >
         <Button
           onClick={handleShare}
-          className="w-full h-14 bg-gradient-to-r from-golden-dark to-golden-light text-background font-bold text-lg hover:opacity-90"
+          className="w-full h-14 bg-gradient-to-r from-[#7D5A02] to-[#A07715] hover:opacity-90 text-background text-lg font-bold rounded-md text-white disabled:opacity-50"
         >
-          <Share2 className="w-5 h-5 mr-2" />
+          <img src={share} alt="" className="h-6 w-auto" />
           Share Invite
         </Button>
       </motion.div>
 
-      {/* Referral Code */}
+      {/* Referral Code Card - Matching card style */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="border-2 border-dashed border-golden-light/50 rounded-xl p-4 flex items-center justify-center gap-3 cursor-pointer hover:border-golden-light transition-colors"
-        onClick={handleCopyCode}
+        className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-6"
       >
-        <Copy className="w-5 h-5 text-golden-light" />
-        <span className="text-xl font-mono font-bold text-golden-light tracking-wider">
-          {referralCode}
-        </span>
+        <h3 className="text-golden-light text-lg font-semibold mb-4">Your Referral Code:</h3>
+        <div 
+          className="border-2 border-dashed border-golden-light/30 rounded-xl p-4 flex items-center justify-center gap-3 cursor-pointer hover:border-golden-light/50 transition-colors"
+          onClick={handleCopyCode}
+        >
+          <Copy className="w-5 h-5 text-golden-light" />
+          <span className="text-xl font-mono font-bold text-golden-light tracking-wider">
+            {referralCode}
+          </span>
+        </div>
+        <p className="text-sm text-golden-light font-extralight opacity-60 text-center mt-3">
+          Tap to copy code
+        </p>
+      </motion.div>
+
+      {/* Instructions Card - Additional helpful information */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-6"
+      >
+        <h3 className="text-golden-light text-lg font-semibold mb-4">How it works:</h3>
+        <div className="space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 bg-golden-light/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-golden-light text-sm font-bold">1</span>
+            </div>
+            <p className="text-foreground text-sm">
+              Share your referral code with friends
+            </p>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 bg-golden-light/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-golden-light text-sm font-bold">2</span>
+            </div>
+            <p className="text-foreground text-sm">
+              They sign up and get <span className="font-semibold text-golden-light">1 bonus point</span>
+            </p>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 bg-golden-light/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-golden-light text-sm font-bold">3</span>
+            </div>
+            <p className="text-foreground text-sm">
+              You earn <span className="font-semibold text-golden-light">10% of their points</span> forever
+            </p>
+          </div>
+        </div>
       </motion.div>
 
       <BottomNavigation />

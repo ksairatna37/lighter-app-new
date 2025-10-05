@@ -1,23 +1,25 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Zap, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import logo from "@/assets/logo.png";
+import slice from "@/assets/Slice.png";
+import lighter from "@/assets/lighter.png";
 
 const Onboarding1 = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-between px-8 py-12">
+    <div className="min-h-screen bg-background flex flex-col items-center py-6">
       {/* Top Section with Logo and Content */}
-      <div className="flex-1 flex flex-col items-start justify-center w-full max-w-md">
-        {/* Lightning Icon */}
+      <div className="flex-1 flex flex-col items-start justify-end w-full max-w-md">
+        {/* Logo */}
         <motion.div
           initial={{ scale: 0, rotate: -180 }}
           animate={{ scale: 1, rotate: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="mb-8"
         >
-          <Zap className="w-20 h-20 text-accent-primary fill-accent-primary" />
+          <img src={logo} alt="Lighter Farm" className="w-auto h-20" />
         </motion.div>
 
         {/* Title */}
@@ -25,7 +27,7 @@ const Onboarding1 = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.6 }}
-          className="text-5xl font-bold text-white mb-8"
+          className="text-5xl font-bold text-golden-light mb-4"
         >
           LighterFarm
         </motion.h1>
@@ -35,7 +37,7 @@ const Onboarding1 = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.6 }}
-          className="text-lg text-white/80 mb-12 leading-relaxed"
+          className="text-md w-[80%]  mb-6 font-extralight leading-relaxed"
         >
           The smartest way to farm, buy, and trade Lighter Points with zero hassle.
         </motion.p>
@@ -45,12 +47,12 @@ const Onboarding1 = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6, duration: 0.6 }}
-          className="flex items-center gap-2 text-white"
+          className="flex items-center gap-2 text-white flex-wrap mb-6"
         >
-          <span className="text-2xl">💛⚡</span>
-          <span className="text-base">Built for the</span>
-          <Zap className="w-5 h-5 text-white fill-white" />
-          <span className="text-base font-semibold">Lighter Protocol ecosystem</span>
+          <span className="text-2xl">💛</span>
+          <span className="text-md font-medium">Built for the</span>
+          <img src={lighter} alt="" className="h-16 w-auto mb-1" />
+          <span className="text-md font-medium">Protocol ecosystem</span>
         </motion.div>
       </div>
 
@@ -63,11 +65,12 @@ const Onboarding1 = () => {
       >
         <Button
           onClick={() => navigate("/onboarding/2")}
-          className="w-full h-14 text-lg font-semibold bg-accent-primary hover:bg-accent-primary/90 text-black rounded-xl"
+          className="w-full h-14 bg-gradient-to-r from-[#7D5A02] to-[#A07715] hover:opacity-90 text-background text-lg font-bold rounded-xl text-white disabled:opacity-50"
         >
           Get Started
         </Button>
       </motion.div>
+
     </div>
   );
 };
