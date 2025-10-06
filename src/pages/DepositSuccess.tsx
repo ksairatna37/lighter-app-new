@@ -6,7 +6,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import logo from "@/assets/logo.png";
 import slice from "@/assets/Slice.png";
 import moneyBag from "@/assets/money-bag.png";
-import share from "@/assets/share.png";
+import share from "@/assets/Share.png";
 
 const DepositSuccess = () => {
   const navigate = useNavigate();
