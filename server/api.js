@@ -14,7 +14,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../dist')));
 
 // The "catchall" handler: for any request that doesn't match an API route, send back React's index.html
-app.get('/*', (req, res, next) => {
+app.get('*', (req, res, next) => {
   if (req.path.includes('/:')) {
     return res.status(400).send('Malformed URL');
   }
