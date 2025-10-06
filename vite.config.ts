@@ -9,7 +9,14 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [react(), mode === "development" && componentTagger()].filter(
+    Boolean
+  ),
+  base: "/", // Important for Azure deployment
+  build: {
+    outDir: "dist",
+    assetsDir: "assets",
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
