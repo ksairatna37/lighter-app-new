@@ -26,7 +26,7 @@ const Deposit = () => {
   const navigate = useNavigate();
 
   const { address, logout, refetchBalance } = useWallet();
-  const { balance, isLoading } = useWalletStore();
+  const { balance, usdcBalance, usdValue, isLoading } = useWalletStore();
 
     const formatAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -122,7 +122,7 @@ const Deposit = () => {
   };
 
   return (
-    <Container className="bg-background min-h-screen pb-24">
+    <Container className="bg-background min-h-screen pb-24 px-4">
       {/* Header - Matching Farm component style */}
       <header className="flex items-center justify-between py-6">
         <Button
@@ -215,7 +215,7 @@ const Deposit = () => {
       >
         <p className="text-golden-light text-md font-bold mb-2">Wallet Balance:</p>
         <div className="flex items-end gap-3 mb-4">
-          <p className="text-4xl font-bold text-golden-light">{balance} ETH</p>
+          <p className="text-4xl font-bold text-golden-light">${usdcBalance}</p>
           <button  onClick={handleRefresh}
             disabled={isLoading} className="text-golden-light hover:opacity-80 mb-1 mr-6">
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />

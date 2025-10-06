@@ -45,12 +45,37 @@ const Dashboard = () => {
   const { address, logout, refetchBalance } = useWallet();
   const { balance, usdcBalance, usdValue, isLoading } = useWalletStore();
 
+  // ETH price in USD (replace with real-time value if available)
+  const [ethPriceUsd, setEthPriceUsd] = useState<number>(3400); // Example price, update as needed
+  
+
 
   // State for USDL balance
   const [usdlBalance, setUsdlBalance] = useState<string>("0.00");
   const [usdlLoading, setUsdlLoading] = useState<boolean>(true);
-  const [stakedBalance, setStakedBalance] = useState<string>("99.00");
-  const [pointValue, setPointValue] = useState<string>("156");
+  const [stakedBalance, setStakedBalance] = useState<string>("0.00");
+  const [pointValue, setPointValue] = useState<string>("0");
+
+
+  // State for user's lighter points
+  const [lighterPoints, setLighterPoints] = useState<number>(0);
+
+  // Mock function to fetch user's lighter points
+  const fetchLighterPoints = async () => {
+    // TODO: Replace with real fetch logic later
+    setLighterPoints(0);
+  };
+
+  // Fetch lighter points on mount
+  useEffect(() => {
+    fetchLighterPoints();
+  }, []);
+
+  // Calculate total balance in USD (USDL + Staked + Point Value)
+  const usdlUsdValue = parseFloat(usdcBalance); // USDL (usdcBalance)
+  const stakedUsdValue = parseFloat(stakedBalance);
+  const pointUsdValue = parseFloat(pointValue);
+  const totalUsdValue = usdlUsdValue + stakedUsdValue + pointUsdValue;
 
 
 
@@ -303,7 +328,7 @@ const Dashboard = () => {
   // Mock functions for other balances
   const fetchStakedBalance = async () => {
     try {
-      setStakedBalance("99.00");
+      setStakedBalance("0.00");
     } catch (error) {
       console.error("Error fetching staked balance:", error);
     }
@@ -311,7 +336,7 @@ const Dashboard = () => {
 
   const fetchPointValue = async () => {
     try {
-      setPointValue("156");
+      setPointValue("0");
     } catch (error) {
       console.error("Error fetching point value:", error);
     }
@@ -366,7 +391,7 @@ const Dashboard = () => {
   );
 
   return (
-    <Container className="bg-background min-h-screen pb-24">
+    <Container className="bg-background min-h-screen pb-24 px-4">
       {/* Main Balance Card */}
       <motion.div
         className="bg-card border border-border rounded-2xl p-6 mb-4 mt-6"
@@ -405,7 +430,7 @@ const Dashboard = () => {
         {/* Balance */}
         <div className="text-center mb-6">
           <p className="text-xs font-extralight text-muted-foreground mb-2">Your Total Balance</p>
-          <p className="text-5xl font-bold text-golden-light mb-6">
+          <p className="text-5xl font-bold text-golden-light mb-2">
             {isLoading ? (
               <motion.span
                 animate={{ opacity: [0.5, 1, 0.5] }}
@@ -414,7 +439,7 @@ const Dashboard = () => {
                 Loading...
               </motion.span>
             ) : (
-              `${parseFloat(balance).toFixed(4)} ETH`
+              `$${totalUsdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
             )}
           </p>
         </div>
@@ -427,7 +452,7 @@ const Dashboard = () => {
               ${usdcBalance}
 
             </p>
-            <p className="text-xs font-extralight text-muted-foreground mt-1">USDC</p>
+            <p className="text-xs font-extralight text-muted-foreground mt-1">USDL</p>
           </div>
           <div className="text-center px-2">
             <p className="text-lg font-bold text-golden-light">${stakedBalance}</p>
@@ -442,7 +467,7 @@ const Dashboard = () => {
         {/* Points */}
         <div className="flex justify-between items-center px-2">
           <p className="text-sm font-thin text-muted-foreground">Your Current total lighter points are</p>
-          <p className="text-2xl font-bold text-golden-light">12.5</p>
+          <p className="text-2xl font-bold text-golden-light">{lighterPoints}</p>
         </div>
       </motion.div>
 

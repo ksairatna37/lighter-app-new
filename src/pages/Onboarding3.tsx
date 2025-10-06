@@ -17,7 +17,7 @@ const Onboarding3 = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-between py-6">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-between py-6 px-4">
       {/* Top Section with Logo and Content */}
       <div className="flex-1 flex flex-col items-start justify-end w-full max-w-md">
         {/* Logo */}
@@ -72,7 +72,7 @@ const Onboarding3 = () => {
         >
           {/* X (Twitter) Icon */}
           <a
-            href="https://twitter.com"
+            href="https://x.com/LighterFarm"
             target="_blank"
             rel="noopener noreferrer"
             className="w-16 h-16 rounded-2xl bg-gradient-to-r from-[#7D5A02] to-[#A07715] flex items-center justify-center hover:opacity-90 transition-opacity shadow-lg"
@@ -84,7 +84,7 @@ const Onboarding3 = () => {
 
           {/* Telegram Icon */}
           <a
-            href="https://telegram.org"
+            href="https://t.me/+sKmppf_5gNo5YzRl"
             target="_blank"
             rel="noopener noreferrer"
             className="w-16 h-16 rounded-2xl bg-gradient-to-r from-[#7D5A02] to-[#A07715] flex items-center justify-center hover:opacity-90 transition-opacity shadow-lg"

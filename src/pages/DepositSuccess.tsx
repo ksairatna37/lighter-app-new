@@ -48,7 +48,7 @@ const DepositSuccess = () => {
   };
 
   return (
-    <Container className="bg-background min-h-screen pb-24 flex flex-col">
+    <Container className="bg-background min-h-screen pb-24 flex flex-col px-4">
       {/* Header - Matching other components */}
       <header className="flex items-center justify-center py-6 relative">
         <div className="text-center flex-1">

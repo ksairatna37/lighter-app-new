@@ -9,7 +9,7 @@ const Onboarding1 = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center py-6">
+    <div className="min-h-screen bg-background flex flex-col items-center py-6 px-4">
       {/* Top Section with Logo and Content */}
       <div className="flex-1 flex flex-col items-start justify-end w-full max-w-md">
         {/* Logo */}
@@ -50,9 +50,9 @@ const Onboarding1 = () => {
           className="flex items-center gap-2 text-white flex-wrap mb-6"
         >
           <span className="text-2xl">💛</span>
-          <span className="text-md font-medium">Built for the</span>
+          <span className="text-md text-golden-light font-medium">Built on top of</span>
           <img src={lighter} alt="" className="h-16 w-auto mb-1" />
-          <span className="text-md font-medium">Protocol ecosystem</span>
+          <span className="text-md text-golden-light font-medium">Protocol ecosystem</span>
         </motion.div>
       </div>
 

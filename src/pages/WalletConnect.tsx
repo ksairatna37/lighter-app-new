@@ -32,7 +32,7 @@ const WalletConnect = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col px-8 py-6">
+    <div className="min-h-screen bg-background flex flex-col px-4 py-6">
       {/* Header */}
       <header className="flex items-center justify-between mb-8">
 
@@ -79,18 +79,7 @@ const WalletConnect = () => {
             </div>
           </div>
 
-          {/* Privy Features */}
-          <div className="bg-background/30 rounded-xl p-4 mb-6">
-            <div className="text-center mb-4">
-              <div className="w-16 h-16 bg-golden-light/10 rounded-full flex items-center justify-center mx-auto mb-3">
-                <img src={slice} alt="" className="h-8 w-auto" />
-              </div>
-              <h4 className="text-golden-light font-semibold mb-2">One-Click Authentication</h4>
-              <p className="text-sm text-golden-light/70">
-                Connect using your preferred method - email, phone, or social accounts
-              </p>
-            </div>
-          </div>
+       
 
           {/* Primary Connect Button */}
           <Button

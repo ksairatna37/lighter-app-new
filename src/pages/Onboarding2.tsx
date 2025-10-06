@@ -33,7 +33,7 @@ const Onboarding2 = () => {
   }, [slides.length]);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-between py-6">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-between py-6 px-4">
       {/* Top Section with Logo and Content */}
       <div className="flex-1 flex flex-col items-start justify-end w-full max-w-md">
         {/* Logo */}

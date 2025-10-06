@@ -69,7 +69,7 @@ const InviteOnly = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background flex flex-col py-6">
+    <div className="min-h-screen bg-background flex flex-col py-6 px-4">
       {/* Header */}
       <header className="flex items-center justify-between mb-8">
 
@@ -171,7 +171,7 @@ const InviteOnly = () => {
           <h3 className="text-golden-light text-lg font-semibold mb-4 text-center">Need an invite code?</h3>
           <div className="flex gap-3 justify-center">
             <a
-              href="https://twitter.com/lighterfarm"
+              href="https://x.com/LighterFarm"
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 bg-golden-light/10 hover:bg-golden-light/20 rounded-xl p-3 flex items-center justify-center gap-2 transition-colors"
@@ -184,7 +184,7 @@ const InviteOnly = () => {
             </a>
             
             <a
-              href="https://t.me/lighterfarm"
+              href="https://t.me/+sKmppf_5gNo5YzRl"
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 bg-golden-light/10 hover:bg-golden-light/20 rounded-xl p-3 flex items-center justify-center gap-2 transition-colors"

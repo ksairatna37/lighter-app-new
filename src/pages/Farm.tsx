@@ -71,7 +71,7 @@ const Farm = () => {
   };
 
   return (
-    <Container className="bg-background min-h-screen pb-24">
+    <Container className="bg-background min-h-screen pb-24 px-4">
       {/* Header */}
       <header className="flex items-center justify-between py-6">
         <Button
