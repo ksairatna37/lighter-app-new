@@ -22,11 +22,12 @@ import { PrivyProvider, usePrivy } from '@privy-io/react-auth'
 import { PRIVY_APP_ID } from '@/config/constants';
 import { useWallet } from '@/hooks/useWallet';
 import { useEffect, useState, useRef } from 'react';
-import logo from  "@/assets/logo.png";
+import logo from "@/assets/logo.png";
 
 const queryClient = new QueryClient();
 
 import type { ReactNode } from 'react';
+import WelcomeCongratulations from "./pages/WelcomeCongratulations";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -83,19 +84,19 @@ const PublicRoute = ({ children }: PublicRouteProps) => {
   if (authenticated) {
     // Allow access to certain pages even when authenticated (onboarding flow)
     const allowedAuthenticatedPaths = [
-      '/onboarding/1', 
-      '/onboarding/2', 
-      '/onboarding/3', 
-      '/wallet-connect', 
+      '/onboarding/1',
+      '/onboarding/2',
+      '/onboarding/3',
+      '/wallet-connect',
       '/wallet-connect/success',
       '/invite-only'
     ];
-    
+
     // If trying to access splash page while authenticated, go to dashboard
     if (location.pathname === '/') {
       return <Navigate to="/dashboard" replace />;
     }
-    
+
     // If trying to access other public routes while authenticated, 
     // only allow if it's part of onboarding flow
     if (!allowedAuthenticatedPaths.includes(location.pathname)) {
@@ -116,25 +117,25 @@ const AuthHandler = ({ children }: { children: ReactNode }) => {
 
   // Define route categories
   const publicRoutes = ['/', '/onboarding/1', '/onboarding/2', '/onboarding/3', '/wallet-connect', '/wallet-connect/success', '/invite-only'];
-  const protectedRoutes = ['/dashboard', '/deposit', '/farm', '/trade', '/referrals', '/profile'];
+  const protectedRoutes = ['/welcome-congratulations', '/dashboard', '/deposit', '/farm', '/trade', '/referrals', '/profile'];
 
   const isPublicRoute = (path: string) => publicRoutes.includes(path);
   const isProtectedRoute = (path: string) => protectedRoutes.some(route => path.startsWith(route));
 
   useEffect(() => {
     if (ready && !hasHandledAuth) {
-      console.log('Auth state changed:', { 
-        authenticated, 
-        ready, 
-        user: !!user, 
+      console.log('Auth state changed:', {
+        authenticated,
+        ready,
+        user: !!user,
         currentPath: location.pathname,
         previousPath: previousLocationRef.current
       });
-      
+
       if (authenticated && user) {
         // Get the intended destination from location state
         const from = location.state?.from?.pathname;
-        
+
         // If user was trying to access a protected route, redirect there
         if (from && isProtectedRoute(from)) {
           console.log('Redirecting to intended protected destination:', from);
@@ -145,16 +146,16 @@ const AuthHandler = ({ children }: { children: ReactNode }) => {
           navigate('/dashboard', { replace: true });
         }
         // If user is on a public route (like onboarding), let them stay there
-        
+
         setHasHandledAuth(true);
       } else if (!authenticated && ready) {
         // User is not authenticated and Privy is ready
         const currentPath = location.pathname;
         const previousPath = previousLocationRef.current;
-        
+
         if (isProtectedRoute(currentPath)) {
           console.log('Unauthenticated user accessing protected route:', currentPath);
-          
+
           // If the user was on a public page before trying to access protected route,
           // redirect them back to that public page instead of splash
           if (isPublicRoute(previousPath)) {
@@ -166,7 +167,7 @@ const AuthHandler = ({ children }: { children: ReactNode }) => {
             navigate('/', { replace: true, state: { from: location } });
           }
         }
-        
+
         setHasHandledAuth(true);
       }
     }
@@ -199,7 +200,7 @@ const NavigationInterceptor = ({ children }: { children: ReactNode }) => {
   const [lastPublicRoute, setLastPublicRoute] = useState<string>('/');
 
   const publicRoutes = ['/', '/onboarding/1', '/onboarding/2', '/onboarding/3', '/wallet-connect', '/wallet-connect/success', '/invite-only'];
-  const protectedRoutes = ['/dashboard', '/deposit', '/farm', '/trade', '/referrals', '/profile'];
+  const protectedRoutes = ['/welcome-congratulations', '/dashboard', '/deposit', '/farm', '/trade', '/referrals', '/profile'];
 
   const isPublicRoute = (path: string) => publicRoutes.includes(path);
   const isProtectedRoute = (path: string) => protectedRoutes.some(route => path.startsWith(route));
@@ -217,17 +218,17 @@ const NavigationInterceptor = ({ children }: { children: ReactNode }) => {
     if (ready && !authenticated && isProtectedRoute(location.pathname)) {
       console.log('Intercepting navigation to protected route:', location.pathname);
       console.log('Redirecting back to last public route:', lastPublicRoute);
-      
+
       // Show a brief message (optional)
       // You could add a toast notification here
-      
+
       // Redirect back to the last public route instead of splash
-      navigate(lastPublicRoute, { 
-        replace: true, 
-        state: { 
+      navigate(lastPublicRoute, {
+        replace: true,
+        state: {
           from: location,
-          message: 'Please complete authentication to access this page' 
-        } 
+          message: 'Please complete authentication to access this page'
+        }
       });
     }
   }, [ready, authenticated, location.pathname, lastPublicRoute, navigate]);
@@ -242,119 +243,127 @@ const AppRoutes = () => {
       <AuthHandler>
         <Routes>
           {/* Public Routes - Accessible without authentication */}
-          <Route 
-            path="/" 
+          <Route
+            path="/"
             element={
               <PublicRoute>
                 <Splash />
               </PublicRoute>
-            } 
+            }
           />
-          <Route 
-            path="/onboarding/1" 
+          <Route
+            path="/onboarding/1"
             element={
               <PublicRoute>
                 <Onboarding1 />
               </PublicRoute>
-            } 
+            }
           />
-          <Route 
-            path="/onboarding/2" 
+          <Route
+            path="/onboarding/2"
             element={
               <PublicRoute>
                 <Onboarding2 />
               </PublicRoute>
-            } 
+            }
           />
-          <Route 
-            path="/onboarding/3" 
+          <Route
+            path="/onboarding/3"
             element={
               <PublicRoute>
                 <Onboarding3 />
               </PublicRoute>
-            } 
+            }
           />
-          <Route 
-            path="/wallet-connect" 
+          <Route
+            path="/wallet-connect"
             element={
               <PublicRoute>
                 <WalletConnect />
               </PublicRoute>
-            } 
+            }
           />
-          <Route 
-            path="/wallet-connect/success" 
+          <Route
+            path="/wallet-connect/success"
             element={
               <PublicRoute>
                 <WalletConnectSuccess />
               </PublicRoute>
-            } 
+            }
           />
-          <Route 
-            path="/invite-only" 
+          <Route
+            path="/invite-only"
             element={
               <PublicRoute>
                 <InviteOnly />
               </PublicRoute>
-            } 
+            }
           />
 
           {/* Protected Routes - Require authentication */}
-          <Route 
-            path="/dashboard" 
+          <Route
+            path="/welcome-congratulations"
+            element={
+              <ProtectedRoute>
+                <WelcomeCongratulations  />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard"
             element={
               <ProtectedRoute>
                 <Dashboard />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/deposit" 
+          <Route
+            path="/deposit"
             element={
               <ProtectedRoute>
                 <Deposit />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/deposit/success" 
+          <Route
+            path="/deposit/success"
             element={
               <ProtectedRoute>
                 <DepositSuccess />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/farm" 
+          <Route
+            path="/farm"
             element={
               <ProtectedRoute>
                 <Farm />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/trade" 
+          <Route
+            path="/trade"
             element={
               <ProtectedRoute>
                 <Trade />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/referrals" 
+          <Route
+            path="/referrals"
             element={
               <ProtectedRoute>
                 <Referrals />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/profile" 
+          <Route
+            path="/profile"
             element={
               <ProtectedRoute>
                 <Profile />
               </ProtectedRoute>
-            } 
+            }
           />
 
           {/* Catch all route */}

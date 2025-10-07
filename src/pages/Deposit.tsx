@@ -84,9 +84,9 @@ const Deposit = () => {
 
   const amounts = [
     { value: 100, points: 0.5 },
-    { value: 125, points: 0.7 },
-    { value: 150, points: 1 },
-    { value: 200, points: 1.3 },
+    { value: 250, points: 0.7 },
+    { value: 500, points: 1 },
+    { value: 1000, points: 1.3 },
   ];
 
   const handleCopyAddress = async () => {
@@ -290,6 +290,33 @@ const Deposit = () => {
         </div>
       </motion.div>
 
+      {/* Address Section - Matching card style */}
+      <motion.div
+        className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-6"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+      >
+        <h3 className="text-golden-light text-lg font-semibold mb-4">Deposit Address:</h3>
+        <p className="text-center text-golden-light font-extralight opacity-60 text-sm mb-4">
+          Send only USDC to this address
+        </p>
+        <div
+          className="border-2 border-dashed border-golden-light/30 rounded-xl p-4 cursor-pointer hover:border-golden-light/50 transition-colors"
+          onClick={handleCopyAddress}
+        >
+          <div className="flex items-center justify-center gap-3">
+            <Copy className="w-5 h-5 text-golden-light" />
+            <span className="text-golden-light font-mono text-xs break-all">
+              {depositAddress}
+            </span>
+          </div>
+        </div>
+        <p className="text-sm text-golden-light font-extralight opacity-60 text-center mt-3">
+          Tap to copy address
+        </p>
+      </motion.div>
+
       {/* Deposit Button - Matching Farm component style */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -328,32 +355,7 @@ const Deposit = () => {
         </Button>
       </motion.div>
 
-      {/* Address Section - Matching card style */}
-      <motion.div
-        className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-      >
-        <h3 className="text-golden-light text-lg font-semibold mb-4">Deposit Address:</h3>
-        <p className="text-center text-golden-light font-extralight opacity-60 text-sm mb-4">
-          Send only USDC to this address
-        </p>
-        <div
-          className="border-2 border-dashed border-golden-light/30 rounded-xl p-4 cursor-pointer hover:border-golden-light/50 transition-colors"
-          onClick={handleCopyAddress}
-        >
-          <div className="flex items-center justify-center gap-3">
-            <Copy className="w-5 h-5 text-golden-light" />
-            <span className="text-golden-light font-mono text-xs break-all">
-              {depositAddress}
-            </span>
-          </div>
-        </div>
-        <p className="text-sm text-golden-light font-extralight opacity-60 text-center mt-3">
-          Tap to copy address
-        </p>
-      </motion.div>
+      
 
       {/* Waiting Status - Matching card style */}
       {selectedAmount && (
