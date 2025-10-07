@@ -28,6 +28,7 @@ const queryClient = new QueryClient();
 
 import type { ReactNode } from 'react';
 import WelcomeCongratulations from "./pages/WelcomeCongratulations";
+import Unstake from "./pages/Unstake";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -117,7 +118,7 @@ const AuthHandler = ({ children }: { children: ReactNode }) => {
 
   // Define route categories
   const publicRoutes = ['/', '/onboarding/1', '/onboarding/2', '/onboarding/3', '/wallet-connect', '/wallet-connect/success', '/invite-only'];
-  const protectedRoutes = ['/welcome-congratulations', '/dashboard', '/deposit', '/farm', '/trade', '/referrals', '/profile'];
+  const protectedRoutes = ['/welcome-congratulations', '/dashboard', '/deposit', '/farm', 'unstake', '/trade', '/referrals', '/profile'];
 
   const isPublicRoute = (path: string) => publicRoutes.includes(path);
   const isProtectedRoute = (path: string) => protectedRoutes.some(route => path.startsWith(route));
@@ -200,7 +201,7 @@ const NavigationInterceptor = ({ children }: { children: ReactNode }) => {
   const [lastPublicRoute, setLastPublicRoute] = useState<string>('/');
 
   const publicRoutes = ['/', '/onboarding/1', '/onboarding/2', '/onboarding/3', '/wallet-connect', '/wallet-connect/success', '/invite-only'];
-  const protectedRoutes = ['/welcome-congratulations', '/dashboard', '/deposit', '/farm', '/trade', '/referrals', '/profile'];
+  const protectedRoutes = ['/welcome-congratulations', '/dashboard', '/deposit', '/farm', 'unstake', '/trade', '/referrals', '/profile'];
 
   const isPublicRoute = (path: string) => publicRoutes.includes(path);
   const isProtectedRoute = (path: string) => protectedRoutes.some(route => path.startsWith(route));
@@ -338,6 +339,14 @@ const AppRoutes = () => {
             element={
               <ProtectedRoute>
                 <Farm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/unstake"
+            element={
+              <ProtectedRoute>
+                <Unstake />
               </ProtectedRoute>
             }
           />

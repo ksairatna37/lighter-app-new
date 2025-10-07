@@ -104,7 +104,8 @@ const Profile = () => {
       icon: withdraw,
       label: "Withdraw",
       description: "Withdraw money into any crypto account",
-      href: "/withdraw",
+      href: "",
+      disabled: true, // Feature not available yet
     },
   ], []);
 

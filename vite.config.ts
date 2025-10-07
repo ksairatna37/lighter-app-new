@@ -9,33 +9,34 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
     proxy: {
-      '/api': {
-        target: 'http://localhost:3000',
+      "/api": {
+        target: "http://localhost:3000",
         changeOrigin: true,
         secure: false,
       },
     },
   },
-  plugins: [
-    react(),
-    mode === 'development' &&
-    componentTagger(),
-  ].filter(Boolean),
+  plugins: [react(), mode === "development" && componentTagger()].filter(
+    Boolean
+  ),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      buffer: 'buffer',
+      buffer: "buffer",
     },
   },
   define: {
-    'process.env': {},
-    global: 'globalThis',
+    "process.env": {},
+    global: "globalThis",
+    "process.version": JSON.stringify("v18.0.0"),
+    "process.platform": JSON.stringify("browser"),
   },
   optimizeDeps: {
+    include: ["buffer"],
     esbuildOptions: {
       define: {
-        global: 'globalThis'
-      }
-    }
-  }
+        global: "globalThis",
+      },
+    },
+  },
 }));

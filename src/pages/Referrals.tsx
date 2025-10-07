@@ -25,8 +25,14 @@ const Referrals = () => {
     // Get referral from localStorage
     const existingReferral = localStorage.getItem(address);
     if (existingReferral) {
-      setReferralCode(existingReferral);
-    } else {
+        const stored = localStorage.getItem(address);
+        if (stored) {
+          const referralData = JSON.parse(stored);
+          setReferralCode(referralData.referral_code);
+          // Use code and userId as needed
+        }
+        return;
+      } else {
       // If no code, fetch from API
       fetch("/api/get_referal_code", {
         method: "POST",
@@ -37,7 +43,6 @@ const Referrals = () => {
         .then((result) => {
           if (result.referral_code) {
             setReferralCode(result.referral_code);
-            localStorage.setItem(address, result.referral_code);
           } else {
             setReferralCode(""); // Optionally reset if not found
           }

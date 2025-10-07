@@ -94,8 +94,13 @@ const Dashboard = () => {
       const existingReferral = localStorage.getItem(address);
 
       // If referral already exists in localStorage, skip API call
-       if (existingReferral) {
-        setReferralCode(existingReferral);
+      if (existingReferral) {
+        const stored = localStorage.getItem(address);
+        if (stored) {
+          const referralData = JSON.parse(stored);
+          setReferralCode(referralData.referral_code);
+          // Use code and userId as needed
+        }
         return;
       }
 
@@ -104,10 +109,16 @@ const Dashboard = () => {
           wallet_address: address,
         });
 
-        if (response.data && response.data.referral_code) {
-          const code = response.data.referral_code;
-          localStorage.setItem(address, code);
-          setReferralCode(code);
+        if (response.data && response.data.referral_code && response.data.id) {
+          const referralData = {
+            referral_code: response.data.referral_code,
+            id: response.data.id,
+          };
+          localStorage.setItem(address, JSON.stringify(referralData));
+
+          setReferralCode(referralData.referral_code);
+          console.log("Referral code fetched and stored:", referralData.referral_code);
+
         } else {
           toast({
             title: "Referral Not Found",
@@ -533,7 +544,10 @@ const Dashboard = () => {
           <img src={deposit} alt="" className="h-8 w-8 group-hover:scale-110 transition-transform" />
           <span className="text-sm text-golden-light">Deposit</span>
         </button>
-        <button className="flex flex-col items-center gap-2 group">
+        <button
+          className="flex flex-col items-center gap-2 group opacity-50 cursor-not-allowed"
+          disabled
+        >
           <img src={withdraw} alt="" className="h-8 w-8 group-hover:scale-110 transition-transform" />
           <span className="text-sm text-golden-light">Withdraw</span>
         </button>

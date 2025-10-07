@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Container } from "@/components/layout/Container";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { BottomNavigation } from "@/components/layout/BottomNavigation";
@@ -13,6 +13,8 @@ import slice from "@/assets/Slice.png";
 import buy from "@/assets/buy.png";
 import sell from "@/assets/sell.png";
 import { useWallet, useWalletStore } from "@/hooks/useWallet";
+import { usePrivy } from "@privy-io/react-auth";
+import axios from "axios";
 
 const Trade = () => {
   const [activeMode, setActiveMode] = useState<'buy' | 'sell'>('buy');
@@ -21,9 +23,14 @@ const Trade = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  const { user, authenticated, getAccessToken } = usePrivy(); // Use getAccessToken instead of signMessage
+  const { balance, usdcBalance, usdValue, isLoading } = useWalletStore();
   const { address, logout, refetchBalance } = useWallet();
 
-  const { balance, usdcBalance, usdValue, isLoading } = useWalletStore();
+  const stored = localStorage.getItem(address);
+  const [usersupabase, setUsersupabase] = useState("");
+  const [expected_points, setexpected_points] = useState("");
+  const [expected_usdl, setexpected_usdl] = useState("");
 
   const usdlBalance = "995.00";
   const pointsBalance = "12.5";
@@ -32,9 +39,49 @@ const Trade = () => {
   const sellPrice = "48.70";
   const tradeFee = 2; // 2%
 
+  useEffect(() => {
+    const fetchReferralCode = async () => {
+      if (stored) {
+        const referralData = JSON.parse(stored);
+        const code = referralData.referral_code;
+        setUsersupabase(referralData.id);
+        console.log('📝 Loaded from localStorage:', {
+          supabaseId: referralData.id,
+          referralCode: code,
+          privyUserId: user?.id,
+          walletAddress: address
+        });
+      }
+    };
+
+    fetchReferralCode();
+  }, [address, user?.id]);
+
+  const createWalletAuth = async () => {
+    try {
+      console.log('🔐 Getting access token for authentication...');
+
+      // Get Privy access token
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        throw new Error('Failed to get access token');
+      }
+
+      console.log('✅ Access token obtained successfully');
+
+      return {
+        accessToken,
+        timestamp: Math.floor(Date.now() / 1000)
+      };
+    } catch (error) {
+      console.error('❌ Failed to get access token:', error);
+      throw error;
+    }
+  };
+
   const calculateTransaction = () => {
     const inputAmount = parseFloat(amount) || 0;
-
     if (activeMode === 'buy') {
       const points = inputAmount / parseFloat(buyPrice);
       const fee = inputAmount * (tradeFee / 100);
@@ -58,11 +105,386 @@ const Trade = () => {
     }
   };
 
+  // Update expected_points only when needed
+  useEffect(() => {
+    if (activeMode === 'buy') {
+      const inputAmount = parseFloat(amount) || 0;
+      const points = inputAmount / parseFloat(buyPrice);
+      setexpected_points(points > 0 ? points.toFixed(2) : "");
+    } else if (activeMode === 'sell') {
+      const inputAmount = parseFloat(amount) || 0;
+      const usdl = inputAmount * parseFloat(sellPrice);
+      const fee = usdl * (tradeFee / 100);
+      setexpected_usdl(usdl > 0 ? (usdl - fee).toFixed(2) : "");
+    } else {
+      setexpected_points("");
+    }
+
+  }, [amount, activeMode, buyPrice,sellPrice]);
+
   const calc = calculateTransaction();
 
   const setPercentage = (percentage: number) => {
     const max = activeMode === 'buy' ? parseFloat(usdlBalance) : parseFloat(availablePoints);
     setAmount(((max * percentage) / 100).toFixed(2));
+  };
+
+  const handleBuy = async () => {
+    if (!authenticated || !user?.id) {
+      toast({
+        title: "Authentication Required",
+        description: "Please authenticate with Privy first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!address) {
+      toast({
+        title: "Wallet Required",
+        description: "Please connect your wallet first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!usersupabase) {
+      toast({
+        title: "User Data Missing",
+        description: "Please complete registration first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsTrading(true);
+
+    try {
+      // Step 1: Get authentication token (alternative to signing)
+      console.log('🔐 Getting authentication token...');
+      const authData = await createWalletAuth();
+
+      // Step 2: Prepare request data
+      const requestData = {
+        wallet_address: address,
+        usdl_amount: amount,
+        expected_points: expected_points,
+        max_slippage: 0, // Default value as specified
+        // Add auth token instead of signature
+        auth_token: authData.accessToken,
+        timestamp: authData.timestamp
+      };
+
+      // Step 3: Prepare headers (use Supabase user ID as confirmed by your testing)
+      const headers = {
+        'X-Privy-User-Id': usersupabase, // Supabase user ID
+        'X-Wallet-Address': address,
+        'Authorization': `Bearer ${authData.accessToken}`, // Add Authorization header
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+
+      console.log('🚀 Making stake request with auth token:', {
+        url: '/api/points/buy',
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Authorization': 'Bearer [TOKEN]', // Don't log the actual token
+          'auth_token': '[HIDDEN]'
+        },
+        data: {
+          ...requestData,
+          auth_token: '[HIDDEN]'
+        },
+        supabaseUserId: usersupabase,
+        privyUserId: user.id,
+        baseURL: axios.defaults.baseURL || window.location.origin,
+      });
+
+      const response = await axios.post('/api/points/buy', requestData, { headers });
+
+      console.log('✅ Stake response:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+        data: response.data,
+      });
+
+      if (response.status === 200 && response.data?.success) {
+        toast({
+          title: "🎯 Buy Successful!",
+          description: `Buyed $${amount} USDL successfully`,
+          duration: 2000,
+        });
+        setAmount("");
+        refetchBalance?.();
+      } else {
+        toast({
+          title: 'Buy failed',
+          description: response.data?.error?.message || response.data?.error || 'Unexpected response from server',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('❌ Buy error details:', {
+        error,
+        message: error.message,
+        name: error.name,
+        code: error.code,
+        isAxiosError: axios.isAxiosError(error),
+      });
+
+      let errorMessage = 'Network or server error';
+      let errorTitle = 'Buy Error';
+
+      if (axios.isAxiosError(error)) {
+        console.log('🔍 Axios error details:', {
+          hasResponse: !!error.response,
+          hasRequest: !!error.request,
+          config: error.config,
+          response: error.response ? {
+            status: error.response.status,
+            statusText: error.response.statusText,
+            headers: error.response.headers,
+            data: error.response.data
+          } : null
+        });
+
+        if (error.response) {
+          const status = error.response.status;
+          const data = error.response.data;
+
+          console.log(`🚨 Server responded with ${status}:`, data);
+
+          if (status === 400) {
+            errorTitle = 'Invalid Request';
+            // Try to extract nested error message from detail.error.message
+            if (data?.detail?.error?.message) {
+              errorMessage = data.detail.error.message;
+            } else if (data?.error?.message) {
+              errorMessage = data.error.message;
+            } else if (data?.error) {
+              errorMessage = data.error;
+            } else if (data?.message) {
+              errorMessage = data.message;
+            } else {
+              errorMessage = 'Please check your input and try again';
+            }
+          } else if (status === 401) {
+            errorTitle = 'Authentication Failed';
+            errorMessage = data?.error?.message || 'Wallet authentication failed. Please reconnect your wallet and try again.';
+            console.log('🔐 Authentication error details:', data?.error);
+          } else if (status === 404) {
+            errorTitle = 'API Endpoint Not Found';
+            errorMessage = 'The API endpoint is not available. Please check if your server is running.';
+          } else if (status >= 500) {
+            errorTitle = 'Server Error';
+            errorMessage = 'Server is temporarily unavailable. Please try again later';
+          } else {
+            errorMessage = data?.error?.message || data?.error || data?.message || `Server error (${status})`;
+          }
+        } else if (error.request) {
+          errorTitle = 'Connection Error';
+          errorMessage = 'Unable to connect to server. Please check your internet connection.';
+        } else {
+          errorMessage = error.message || 'Failed to make request';
+        }
+      } else if (error.message && error.message.includes('access token')) {
+        errorTitle = 'Authentication Error';
+        errorMessage = 'Failed to authenticate. Please try logging out and back in.';
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+
+      toast({
+        title: errorTitle,
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsTrading(false);
+    }
+  };
+
+  const handleSell = async () => {
+    if (!authenticated || !user?.id) {
+      toast({
+        title: "Authentication Required",
+        description: "Please authenticate with Privy first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!address) {
+      toast({
+        title: "Wallet Required",
+        description: "Please connect your wallet first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!usersupabase) {
+      toast({
+        title: "User Data Missing",
+        description: "Please complete registration first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsTrading(true);
+
+    try {
+      // Step 1: Get authentication token (alternative to signing)
+      console.log('🔐 Getting authentication token...');
+      const authData = await createWalletAuth();
+
+      // Step 2: Prepare request data
+      const requestData = {
+        wallet_address: address,
+        points_amount: amount,
+        expected_usdl: expected_usdl,
+        min_slippage: 0, // Default value as specified
+        // Add auth token instead of signature
+        auth_token: authData.accessToken,
+        timestamp: authData.timestamp
+      };
+
+      // Step 3: Prepare headers (use Supabase user ID as confirmed by your testing)
+      const headers = {
+        'X-Privy-User-Id': usersupabase, // Supabase user ID
+        'X-Wallet-Address': address,
+        'Authorization': `Bearer ${authData.accessToken}`, // Add Authorization header
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+
+      console.log('🚀 Making stake request with auth token:', {
+        url: '/api/points/sell',
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Authorization': 'Bearer [TOKEN]', // Don't log the actual token
+          'auth_token': '[HIDDEN]'
+        },
+        data: {
+          ...requestData,
+          auth_token: '[HIDDEN]'
+        },
+        supabaseUserId: usersupabase,
+        privyUserId: user.id,
+        baseURL: axios.defaults.baseURL || window.location.origin,
+      });
+
+      const response = await axios.post('/api/points/sell', requestData, { headers });
+
+      console.log('✅ Stake response:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+        data: response.data,
+      });
+
+      if (response.status === 200 && response.data?.success) {
+        toast({
+          title: "🎯 Sell Successful!",
+          description: `Selled ${amount} points successfully`,
+          duration: 2000,
+        });
+        setAmount("");
+        refetchBalance?.();
+      } else {
+        toast({
+          title: 'Sell failed',
+          description: response.data?.error?.message || response.data?.error || 'Unexpected response from server',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('❌ Sell error details:', {
+        error,
+        message: error.message,
+        name: error.name,
+        code: error.code,
+        isAxiosError: axios.isAxiosError(error),
+      });
+
+      let errorMessage = 'Network or server error';
+      let errorTitle = 'Sell Error';
+
+      if (axios.isAxiosError(error)) {
+        console.log('🔍 Axios error details:', {
+          hasResponse: !!error.response,
+          hasRequest: !!error.request,
+          config: error.config,
+          response: error.response ? {
+            status: error.response.status,
+            statusText: error.response.statusText,
+            headers: error.response.headers,
+            data: error.response.data
+          } : null
+        });
+
+        if (error.response) {
+          const status = error.response.status;
+          const data = error.response.data;
+
+          console.log(`🚨 Server responded with ${status}:`, data);
+
+          if (status === 400) {
+            errorTitle = 'Invalid Request';
+            // Try to extract nested error message from detail.error.message
+            if (data?.detail?.error?.message) {
+              errorMessage = data.detail.error.message;
+            } else if (data?.error?.message) {
+              errorMessage = data.error.message;
+            } else if (data?.error) {
+              errorMessage = data.error;
+            } else if (data?.message) {
+              errorMessage = data.message;
+            } else {
+              errorMessage = 'Please check your input and try again';
+            }
+          } else if (status === 401) {
+            errorTitle = 'Authentication Failed';
+            errorMessage = data?.error?.message || 'Wallet authentication failed. Please reconnect your wallet and try again.';
+            console.log('🔐 Authentication error details:', data?.error);
+          } else if (status === 404) {
+            errorTitle = 'API Endpoint Not Found';
+            errorMessage = 'The API endpoint is not available. Please check if your server is running.';
+          } else if (status >= 500) {
+            errorTitle = 'Server Error';
+            errorMessage = 'Server is temporarily unavailable. Please try again later';
+          } else {
+            errorMessage = data?.error?.message || data?.error || data?.message || `Server error (${status})`;
+          }
+        } else if (error.request) {
+          errorTitle = 'Connection Error';
+          errorMessage = 'Unable to connect to server. Please check your internet connection.';
+        } else {
+          errorMessage = error.message || 'Failed to make request';
+        }
+      } else if (error.message && error.message.includes('access token')) {
+        errorTitle = 'Authentication Error';
+        errorMessage = 'Failed to authenticate. Please try logging out and back in.';
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+
+      toast({
+        title: errorTitle,
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsTrading(false);
+    }
   };
 
   const handleTrade = async () => {
@@ -75,16 +497,16 @@ const Trade = () => {
       return;
     }
 
-    setIsTrading(true);
+    if (activeMode === "buy") {
+      // Call the proper buy function with all validation and real API request
+      await handleBuy();
+      return;
+    } else if (activeMode === "sell") {
+      // Call the proper sell function with all validation and real API request
+      await handleSell();
+      return;
+    }
 
-    setTimeout(() => {
-      setIsTrading(false);
-      toast({
-        title: `⚡ ${activeMode === 'buy' ? 'Purchase' : 'Sale'} Successful!`,
-        description: `${activeMode === 'buy' ? 'Bought' : 'Sold'} successfully`,
-      });
-      setAmount("");
-    }, 2000);
   };
 
   return (
@@ -116,7 +538,7 @@ const Trade = () => {
       >
         <div className="flex justify-between items-center mb-4">
           <span className="text-golden-light font-extralight opacity-60">Available</span>
-          <span className="text-golden-light font-bold">${usdcBalance} USDC</span>
+          <span className="text-golden-light font-bold">${usdcBalance} USDL</span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-golden-light font-extralight opacity-60">Total Points</span>
@@ -132,7 +554,7 @@ const Trade = () => {
         transition={{ delay: 0.1 }}
       >
         <Button
-          onClick={() => setActiveMode('buy')}
+          onClick={() => { setActiveMode('buy'); setAmount("") }}
           className={`h-14 text-lg font-semibold rounded-xm ${activeMode === 'buy'
             ? 'bg-gradient-to-r from-[#7D5A02] to-[#A07715] text-white hover:opacity-90'
             : 'bg-transparent border-2 border-golden-light/10 text-white/30 hover:bg-golden-light/10'
@@ -142,7 +564,7 @@ const Trade = () => {
           BUY Points
         </Button>
         <Button
-          onClick={() => setActiveMode('sell')}
+          onClick={() => { setActiveMode('sell'); setAmount("") }}
           className={`h-14 text-lg font-semibold rounded-md ${activeMode === 'sell'
             ? 'bg-gradient-to-r from-[#7D5A02] to-[#A07715] text-white hover:opacity-90'
             : 'bg-transparent border-2 border-golden-light/10 text-white/30 hover:bg-golden-light/10'
