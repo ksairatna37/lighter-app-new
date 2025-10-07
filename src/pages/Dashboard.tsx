@@ -15,6 +15,8 @@ import refercardbg from "@/assets/refercardbg.png";
 import copy from "@/assets/Copy.png";
 import timer from "@/assets/timer.png";
 import { useWallet, useWalletStore } from '@/hooks/useWallet';
+import axios from "axios";
+import { toast } from "@/hooks/use-toast";
 
 
 
@@ -47,7 +49,7 @@ const Dashboard = () => {
 
   // ETH price in USD (replace with real-time value if available)
   const [ethPriceUsd, setEthPriceUsd] = useState<number>(3400); // Example price, update as needed
-  
+
 
 
   // State for USDL balance
@@ -76,6 +78,55 @@ const Dashboard = () => {
   const stakedUsdValue = parseFloat(stakedBalance);
   const pointUsdValue = parseFloat(pointValue);
   const totalUsdValue = usdlUsdValue + stakedUsdValue + pointUsdValue;
+  const [referralCode, setReferralCode] = useState("");
+
+  useEffect(() => {
+    const fetchReferralCode = async () => {
+      if (!address) {
+        toast({
+          title: "Wallet Required",
+          description: "Wallet address not found.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const existingReferral = localStorage.getItem(address);
+
+      // If referral already exists in localStorage, skip API call
+       if (existingReferral) {
+        setReferralCode(existingReferral);
+        return;
+      }
+
+      try {
+        const response = await axios.post("/api/get_referal_code", {
+          wallet_address: address,
+        });
+
+        if (response.data && response.data.referral_code) {
+          const code = response.data.referral_code;
+          localStorage.setItem(address, code);
+          setReferralCode(code);
+        } else {
+          toast({
+            title: "Referral Not Found",
+            description: "No referral code found for this wallet.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching referral code:", error);
+        toast({
+          title: "Server Error",
+          description: "Could not fetch referral code. Please try again.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    fetchReferralCode();
+  }, [address]);
 
 
 
@@ -522,7 +573,7 @@ const Dashboard = () => {
             <div className="inline-flex items-end gap-1 border border-dashed 
                       border-golden-light/60 rounded-lg px-1.5 py-1.5 bg-black/40">
               <img src={copy} alt="" className="h-4 w-4" />
-              <span className="text-golden-light text-xs font-bold">G7215SDF</span>
+              <span className="text-golden-light text-xs font-bold">{referralCode}</span>
             </div>
           </div>
         </div>

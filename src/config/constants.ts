@@ -9,6 +9,9 @@ export const CHAIN_ID = 8453;
 export const CHAIN_NAME = "Base";
 export const RPC_URL = "https://base-mainnet.infura.io/v3/3b60e88027de49bba4bd65af373611df";
 
+export const SUPABASE_URL = "https://drepvbrhkxzwtwqncnyd.supabase.co";
+export const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyZXB2YnJoa3h6d3R3cW5jbnlkIiwicm9zZSI6ImFub24iLCJpYXQiOjE3MjkzOTczMjQsImV4cCI6MjA0NDk3MzMyNH0.OJCaAJBAxZfrydgUfm1A_ECFL3uCOmYX33rjCETcNQw";
+
 // Block Explorer
 export const BLOCK_EXPLORER_URL = "https://basescan.org";
 

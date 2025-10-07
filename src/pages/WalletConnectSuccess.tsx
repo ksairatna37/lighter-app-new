@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -62,7 +63,7 @@ const WalletConnectSuccess = () => {
     navigate("/wallet-connect");
   };
 
-  const handleStartFarming = () => {
+  const handleStartFarming = async () => {
     if (!agreedToTerms) {
       toast({
         title: "Terms Required",
@@ -71,7 +72,28 @@ const WalletConnectSuccess = () => {
       });
       return;
     }
-    navigate("/invite-only");
+    if (!address) {
+      toast({
+        title: "Wallet Required",
+        description: "Wallet address not found.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      const response = await axios.post('/api/check_user_exist', { wallet_address: address });
+      if (response.data && response.data.exists === 'yes') {
+        navigate('/dashboard');
+      } else {
+        navigate('/invite-only');
+      }
+    } catch (error) {
+      toast({
+        title: "Server Error",
+        description: "Could not check user existence. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

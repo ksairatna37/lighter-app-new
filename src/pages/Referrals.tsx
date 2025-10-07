@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Container } from "@/components/layout/Container";
 import { BottomNavigation } from "@/components/layout/BottomNavigation";
 import { Button } from "@/components/ui/button";
@@ -11,10 +11,40 @@ import slice from "@/assets/Slice.png";
 import referbox from "@/assets/referbox.png";
 import and from "@/assets/and.png";
 import share from "@/assets/Share.png";
+import { useWallet } from "@/hooks/useWallet";
+
 const Referrals = () => {
-  const [referralCode] = useState("G7215SDF");
+  const [referralCode, setReferralCode] = useState("");
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { address, logout, refetchBalance } = useWallet();
+
+  useEffect(() => {
+    if (!address) return;
+
+    // Get referral from localStorage
+    const existingReferral = localStorage.getItem(address);
+    if (existingReferral) {
+      setReferralCode(existingReferral);
+    } else {
+      // If no code, fetch from API
+      fetch("/api/get_referal_code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wallet_address: address }),
+      })
+        .then((res) => res.json())
+        .then((result) => {
+          if (result.referral_code) {
+            setReferralCode(result.referral_code);
+            localStorage.setItem(address, result.referral_code);
+          } else {
+            setReferralCode(""); // Optionally reset if not found
+          }
+        })
+        .catch(() => setReferralCode(""));
+    }
+  }, [address]);
 
   const handleCopyCode = async () => {
     try {
@@ -50,7 +80,7 @@ const Referrals = () => {
 
   return (
     <Container className="bg-background min-h-screen pb-24 px-4">
-      {/* Header - Matching Farm component style */}
+      {/* Header */}
       <header className="flex items-center justify-between py-6">
         <Button
           variant="ghost"
@@ -60,17 +90,15 @@ const Referrals = () => {
         >
           <ArrowLeft className="w-8 h-8 text-background" />
         </Button>
-
         <div className="text-center flex-1">
           <h1 className="text-xl font-bold text-golden-light">Refer Stats</h1>
           <p className="text-sm text-golden-light/80">earn together</p>
         </div>
-
         <img src={logo} alt="" className="h-8 w-auto" />
       </header>
 
-      {/* Stats Card - Matching Farm component style */}
-      <motion.div 
+      {/* Stats Card */}
+      <motion.div
         className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-6"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -86,22 +114,18 @@ const Referrals = () => {
       </motion.div>
 
       {/* Ticket Section */}
-      <motion.div 
+      <motion.div
         className="mb-8 flex flex-col items-center"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.1 }}
       >
-        {/* Ticket Shape - Updated with golden theme */}
         <div className="relative w-full max-w-sm mb-6 items-center flex justify-center">
           <img src={referbox} alt="" className="h-120 w-auto" />
         </div>
-
         <p className="text-lg text-golden-light text-center mb-8 font-extralight">
           You get <span className="font-bold text-golden-light">10%</span> of their earned points
         </p>
-
-        {/* Divider - Matching golden theme */}
         <div className="flex items-center gap-4 w-full max-w-sm mb-8">
           <div className="flex-1 h-px bg-golden-light/20"></div>
           <div className="flex items-center gap">
@@ -109,13 +133,12 @@ const Referrals = () => {
           </div>
           <div className="flex-1 h-px bg-golden-light/20"></div>
         </div>
-
         <p className="text-lg font-extralight text-foreground text-center mb-8">
           Your friend gets <span className="font-bold text-golden-light">1 bonus point</span> on signup
         </p>
       </motion.div>
 
-      {/* Share Button - Matching Farm component style */}
+      {/* Share Button */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -131,7 +154,7 @@ const Referrals = () => {
         </Button>
       </motion.div>
 
-      {/* Referral Code Card - Matching card style */}
+      {/* Referral Code Card */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -139,7 +162,7 @@ const Referrals = () => {
         className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-6"
       >
         <h3 className="text-golden-light text-lg font-semibold mb-4">Your Referral Code:</h3>
-        <div 
+        <div
           className="border-2 border-dashed border-golden-light/30 rounded-xl p-4 flex items-center justify-center gap-3 cursor-pointer hover:border-golden-light/50 transition-colors"
           onClick={handleCopyCode}
         >
@@ -153,7 +176,7 @@ const Referrals = () => {
         </p>
       </motion.div>
 
-      {/* Instructions Card - Additional helpful information */}
+      {/* Instructions Card */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

@@ -225,15 +225,10 @@ const InviteOnly = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col py-6 px-4">
-      {/* Header */}
-      <header className="flex items-center justify-between mb-8">
-        <div className="text-center flex-1">
-          <h1 className="text-xl font-bold text-golden-light">Invite Only</h1>
-          <p className="text-sm text-golden-light/80">exclusive access</p>
-        </div>
-      </header>
+      
 
-
+      {user.id}<br/>
+      {address}
       {/* Authentication Warning */}
       {!authenticated && (
         <motion.div
