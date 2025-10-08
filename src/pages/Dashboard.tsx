@@ -41,7 +41,7 @@ interface SuggestedAction {
   color: string;
 }
 
-const Dashboard = () => {
+const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
   const navigate = useNavigate();
   const { user, authenticated } = usePrivy();
   const { address, logout, refetchBalance } = useWallet();
@@ -52,11 +52,37 @@ const Dashboard = () => {
 
 
 
-  // State for USDL balance
-  const [usdlBalance, setUsdlBalance] = useState<string>("0.00");
+
   const [usdlLoading, setUsdlLoading] = useState<boolean>(true);
+
+  const [referralCode, setReferralCode] = useState<string>("");
+  const [usersupabase, setUsersupabase] = useState<string>(""); // Supabase user id
+  const [walletAddress, setWalletAddress] = useState<string>("");
+  const [usdlBalance, setUsdlBalance] = useState<string>("0");
+  const [pointsBalance, setPointsBalance] = useState<string>("0");
   const [stakedBalance, setStakedBalance] = useState<string>("0.00");
-  const [pointValue, setPointValue] = useState<string>("0");
+  const [totalPoints, setTotalPoints] = useState<string>("0");
+
+
+
+  const [seconds, setSeconds] = useState(initialTime);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSeconds(prev =>
+        mode === "countdown" ? Math.max(prev - 1, 0) : prev + 1
+      );
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [mode]);
+
+  const formatTime = s => {
+    const hrs = String(Math.floor(s / 3600)).padStart(2, "0");
+    const mins = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+    const secs = String(s % 60).padStart(2, "0");
+    return `${hrs}:${mins}:${secs}`;
+  };
 
 
   // State for user's lighter points
@@ -74,11 +100,10 @@ const Dashboard = () => {
   }, []);
 
   // Calculate total balance in USD (USDL + Staked + Point Value)
-  const usdlUsdValue = parseFloat(usdcBalance); // USDL (usdcBalance)
+  const usdlUsdValue = parseFloat(usdlBalance); // USDL (usdcBalance)
   const stakedUsdValue = parseFloat(stakedBalance);
-  const pointUsdValue = parseFloat(pointValue);
+  const pointUsdValue = parseFloat(pointsBalance);
   const totalUsdValue = usdlUsdValue + stakedUsdValue + pointUsdValue;
-  const [referralCode, setReferralCode] = useState("");
 
   useEffect(() => {
     const fetchReferralCode = async () => {
@@ -91,34 +116,48 @@ const Dashboard = () => {
         return;
       }
 
-      const existingReferral = localStorage.getItem(address);
-
-      // If referral already exists in localStorage, skip API call
-      if (existingReferral) {
-        const stored = localStorage.getItem(address);
-        if (stored) {
-          const referralData = JSON.parse(stored);
-          setReferralCode(referralData.referral_code);
-          // Use code and userId as needed
-        }
-        return;
-      }
-
       try {
         const response = await axios.post("/api/get_referal_code", {
           wallet_address: address,
         });
 
-        if (response.data && response.data.referral_code && response.data.id) {
+        const data = response.data;
+
+        if (data) {
+          console.log("Referral data from server:", data);
           const referralData = {
-            referral_code: response.data.referral_code,
-            id: response.data.id,
+            referral_code: data.referral_code,
+            id: data.id,
+            wallet_address: data.wallet_address,
+            usdl_balance: data.usdl_balance,
+            points_balance: data.points_balance,
+            staked_amount: data.staked_amount,
+            total_points: data.total_points
           };
-          localStorage.setItem(address, JSON.stringify(referralData));
+          setReferralCode(data.referral_code);
+          setUsersupabase(data.id);
+          setWalletAddress(data.wallet_address);
+          setUsdlBalance((data.usdl_balance).toFixed(2));
+          setPointsBalance((data.points_balance).toFixed(2));
+          setStakedBalance((data.staked_amount).toFixed(2));
+          setTotalPoints((data.total_points).toFixed(2));
+          const totalbalance = (parseFloat(data.usdl_balance) + parseFloat(data.points_balance) + parseFloat(data.staked_amount)).toFixed(2);
+          console.log("Total USD Balance calculated:", totalbalance);
 
-          setReferralCode(referralData.referral_code);
-          console.log("Referral code fetched and stored:", referralData.referral_code);
+          const localdata = {
+            referral_code: data.referral_code,
+            id: data.id,
+            wallet_address: data.wallet_address,
+            usdl_balance: ((data.usdl_balance).toFixed(2)),
+            points_balance: (data.points_balance).toFixed(2),
+            staked_amount: ((data.staked_amount).toFixed(2)),
+            total_points: ((data.total_points).toFixed(2)),
+            total_usd_balance: totalbalance
+          };
 
+          localStorage.setItem(address, JSON.stringify(localdata));
+
+          console.log("Referral code and balances fetched and stored:", referralData);
         } else {
           toast({
             title: "Referral Not Found",
@@ -138,6 +177,7 @@ const Dashboard = () => {
 
     fetchReferralCode();
   }, [address]);
+
 
 
 
@@ -398,7 +438,7 @@ const Dashboard = () => {
 
   const fetchPointValue = async () => {
     try {
-      setPointValue("0");
+      setPointsBalance("0");
     } catch (error) {
       console.error("Error fetching point value:", error);
     }
@@ -427,6 +467,7 @@ const Dashboard = () => {
 
   // Refresh function for manual refresh
   const handleRefreshBalances = async () => {
+    
     setUsdlLoading(true);
     await Promise.all([
       fetchStakedBalance(),
@@ -466,9 +507,9 @@ const Dashboard = () => {
             <h1 className="text-2xl font-thin text-golden-light">
               Hello, <span className="font-medium">User!</span>
             </h1>
-            {user?.wallet?.address && (
+            {walletAddress && (
               <p className="text-xs text-muted-foreground font-extralight mt-1">
-                {user.wallet.address.slice(0, 6)}...{user.wallet.address.slice(-4)}
+                {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
               </p>
             )}
           </div>
@@ -511,7 +552,7 @@ const Dashboard = () => {
           <div className="text-center px-2">
             <p className="text-lg font-bold text-golden-light">
 
-              ${usdcBalance}
+              ${usdlBalance}
 
             </p>
             <p className="text-xs font-extralight text-muted-foreground mt-1">USDL</p>
@@ -521,7 +562,7 @@ const Dashboard = () => {
             <p className="text-xs font-extralight text-muted-foreground mt-1">Staked</p>
           </div>
           <div className="text-center px-2">
-            <p className="text-lg font-bold text-golden-light">${pointValue}</p>
+            <p className="text-lg font-bold text-golden-light">${pointsBalance}</p>
             <p className="text-xs font-extralight text-muted-foreground mt-1">Point Value</p>
           </div>
         </div>
@@ -529,7 +570,7 @@ const Dashboard = () => {
         {/* Points */}
         <div className="flex justify-between items-center px-2">
           <p className="text-sm font-thin text-muted-foreground">Your Current total lighter points are</p>
-          <p className="text-2xl font-bold text-golden-light">{lighterPoints}</p>
+          <p className="text-2xl font-bold text-golden-light">{totalPoints}</p>
         </div>
       </motion.div>
 
@@ -615,7 +656,7 @@ const Dashboard = () => {
           </p>
           <div className="flex items-center gap-1 text-golden-light">
             <img src={timer} alt="" className="h-5 w-5" />
-            <span className="text-xs text-[#A07715] font-bold">00:59:36</span>
+            <span className="text-xs text-[#A07715] font-bold">{formatTime(seconds)}</span>
           </div>
         </motion.div>
 

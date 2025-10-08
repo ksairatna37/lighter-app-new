@@ -13,6 +13,20 @@ import slice from "@/assets/Slice.png";
 import { useWallet, useWalletStore } from '@/hooks/useWallet';
 import { usePrivy } from '@privy-io/react-auth';
 import axios from 'axios';
+import StakeSuccessModal from "./StakeSuccessModal";
+
+
+interface StakeSuccessData {
+  transaction_id: string;
+  tx_hash: string;
+  staked_amount: string;
+  total_staked: string;
+  estimated_apy: string;
+  estimated_daily_yield: string;
+  lock_end_date: string;
+  new_usdl_balance: string;
+  timestamp: string;
+}
 
 const Farm = () => {
   const [stakeAmount, setStakeAmount] = useState("");
@@ -21,10 +35,43 @@ const Farm = () => {
   const navigate = useNavigate();
   const { address, logout, refetchBalance } = useWallet();
   const { user, authenticated, getAccessToken } = usePrivy(); // Use getAccessToken instead of signMessage
-  const { balance, usdcBalance, usdValue, isLoading } = useWalletStore();
+
+  // Modal state
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [stakeSuccessData, setStakeSuccessData] = useState<StakeSuccessData | null>(null);
+
+  const [usdcBalance, setUsdcBalance] = useState(0);
+
 
   const stored = localStorage.getItem(address);
+
+
+
+  useEffect(() => {
+    const fetchReferralCode = async () => {
+      if (!address) {
+        toast({
+          title: "Wallet Required",
+          description: "Wallet address not found.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const localdata = JSON.parse(stored);
+      setUsdcBalance(localdata.usdl_balance || 0)
+    };
+
+
+
+    fetchReferralCode();
+  }, [stored]);
+
+
+
   const [usersupabase, setUsersupabase] = useState("");
+
+
 
   useEffect(() => {
     const fetchReferralCode = async () => {
@@ -44,8 +91,8 @@ const Farm = () => {
     fetchReferralCode();
   }, [address, user?.id]);
 
-  const availableUSDL = "1245.00";
-  const stakedAmount = "99.00";
+  const availableUSDL = "0";
+  const stakedAmount = "0";
 
   // Alternative approach: Use Privy's access token for authentication
   const createWalletAuth = async () => {
@@ -71,6 +118,7 @@ const Farm = () => {
     }
   };
 
+  
   const handleStake = async () => {
     if (!stakeAmount || parseFloat(stakeAmount) <= 0) {
       toast({
@@ -161,13 +209,22 @@ const Farm = () => {
       });
 
       if (response.status === 200 && response.data?.success) {
-        toast({
-          title: "🎯 Stake Successful!",
-          description: `Staked $${stakeAmount} USDL successfully`,
-          duration: 2000,
-        });
+        // Store the success data and show modal instead of toast
+        setStakeSuccessData(response.data.data);
+        setShowSuccessModal(true);
         setStakeAmount("");
         refetchBalance?.();
+        
+        // Optional: Play success sound
+        if (window.Audio) {
+          try {
+            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApFn+DyvmMcBS2FzvLZiDYIG2m+7+WiTAwO'); 
+            audio.volume = 0.3;
+            audio.play().catch(() => {}); // Ignore errors
+          } catch (e) {
+            // Ignore audio errors
+          }
+        }
       } else {
         toast({
           title: 'Stake failed',
@@ -258,6 +315,28 @@ const Farm = () => {
     }
   };
 
+  const handleUnstake = () => {
+    navigate("/unstake");
+  };
+
+  const handleCloseSuccessModal = () => {
+    setShowSuccessModal(false);
+    setStakeSuccessData(null);
+  };
+
+  const handleStakeAgain = () => {
+    // This will close the modal and allow user to stake again
+    setShowSuccessModal(false);
+    setStakeSuccessData(null);
+    // Focus on the input field
+    setTimeout(() => {
+      const input = document.querySelector('input[type="number"]') as HTMLInputElement;
+      if (input) input.focus();
+    }, 100);
+  };
+
+
+
   const calculateProjections = () => {
     const amount = parseFloat(stakeAmount) || 0;
     const weeklyRate = 0.079; // ~7.9% for 100 USDL
@@ -275,15 +354,15 @@ const Farm = () => {
   const projections = calculateProjections();
 
   const setPercentage = (percentage: number) => {
-    const amount = (parseFloat(availableUSDL) * percentage / 100).toFixed(2);
+    // usdcBalance is a number, so no need to parse; compute and format to 2 decimals
+    const amount = (usdcBalance * percentage / 100).toFixed(2);
     setStakeAmount(amount);
   };
 
-  const handleUnstake = () => {
-    navigate("/unstake");
-  };
+
 
   return (
+    <>
     <Container className="bg-background min-h-screen pb-24 px-4">
       {/* Header */}
       <header className="flex items-center justify-between py-6 relative z-10">
@@ -316,7 +395,7 @@ const Farm = () => {
         </div>
         <div className="flex justify-between items-center">
           <span className="text-golden-light font-extralight opacity-60">Total Farmed</span>
-          <span className="text-golden-light font-bold">${stakedAmount} USDL</span>
+          <span className="text-golden-light font-bold">{stakedAmount} USDL</span>
         </div>
       </motion.div>
 
@@ -405,7 +484,6 @@ const Farm = () => {
         {/* Unstake Button */}
         <Button
           onClick={handleUnstake}
-          disabled={parseFloat(stakedAmount) <= 0}
           className="flex-1 h-14 bg-transparent border-2 border-golden-light/30 text-golden-light hover:bg-golden-light/10 text-lg font-bold rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
         >
           <ArrowUp className="w-5 h-5" />
@@ -462,6 +540,15 @@ const Farm = () => {
 
       <BottomNavigation />
     </Container>
+
+     <StakeSuccessModal
+        isOpen={showSuccessModal}
+        onClose={handleCloseSuccessModal}
+        data={stakeSuccessData}
+        onStakeAgain={handleStakeAgain}
+      />
+
+    </>
   );
 };
 

@@ -116,8 +116,8 @@ app.post('/api/stake', async (req, res) => {
     const authorizationHeader = req.headers['authorization'];
 
     console.log('📥 Received stake request:', {
-      body: { 
-        wallet_address, 
+      body: {
+        wallet_address,
         amount,
         duration_days: duration_days !== undefined ? duration_days : 'not provided',
         hasAuthToken: !!auth_token,
@@ -253,8 +253,8 @@ app.post('/api/unstake', async (req, res) => {
     const authorizationHeader = req.headers['authorization'];
 
     console.log('📥 Received stake request:', {
-      body: { 
-        wallet_address, 
+      body: {
+        wallet_address,
         amount,
         force_unlock: force_unlock !== undefined ? force_unlock : 'false',
         hasAuthToken: !!auth_token,
@@ -390,11 +390,11 @@ app.post('/api/points/buy', async (req, res) => {
     const authorizationHeader = req.headers['authorization'];
 
     console.log('📥 Received stake request:', {
-      body: { 
-        wallet_address, 
+      body: {
+        wallet_address,
         usdl_amount,
         expected_points: expected_points !== undefined ? expected_points : 'not provided',
-        max_slippage:max_slippage,
+        max_slippage: max_slippage,
         hasAuthToken: !!auth_token,
         timestamp
       },
@@ -432,7 +432,7 @@ app.post('/api/points/buy', async (req, res) => {
       wallet_address,
       usdl_amount,
       expected_points: expected_points, // This is required by the API
-      max_slippage:0
+      max_slippage: 0
     };
 
     // Add auth token if provided
@@ -522,11 +522,11 @@ app.post('/api/points/sell', async (req, res) => {
     const authorizationHeader = req.headers['authorization'];
 
     console.log('📥 Received stake request:', {
-      body: { 
-        wallet_address, 
+      body: {
+        wallet_address,
         points_amount,
         expected_usdl: expected_usdl !== undefined ? expected_usdl : 'not provided',
-        min_slippage:min_slippage,
+        min_slippage: min_slippage,
         hasAuthToken: !!auth_token,
         timestamp
       },
@@ -564,7 +564,7 @@ app.post('/api/points/sell', async (req, res) => {
       wallet_address,
       points_amount,
       expected_usdl: expected_usdl, // This is required by the API
-      min_slippage:0
+      min_slippage: 0
     };
 
     // Add auth token if provided
@@ -689,21 +689,27 @@ app.post('/api/get_referal_code', async (req, res) => {
     // Fetch referral code for given wallet
     const { data, error } = await supabase
       .from('lighter_farm_user')
-      .select('id, referral_code')
+      .select('id, referral_code, wallet_address, usdl_balance, points_balance, staked_amount, total_points')
       .eq('wallet_address', wallet_address);
 
     if (error) {
       return res.status(500).json({ success: false, error: error.message });
     }
 
-    if (data && data.length > 0 && data[0].referral_code) {
+    if (data && data.length > 0) {
       return res.json({
+        id: data[0].id,
         referral_code: data[0].referral_code,
-        id: data[0].id
+        wallet_address: data[0].wallet_address,
+        usdl_balance: data[0].usdl_balance,
+        points_balance: data[0].points_balance,
+        staked_amount: data[0].staked_amount,
+        total_points: data[0].total_points
       });
     } else {
       return res.status(404).json({ success: false, error: 'Referral code not found' });
     }
+
   } catch (err) {
     console.error('Error in /api/get_referal_code:', err);
     return res.status(500).json({ success: false, error: err.message });

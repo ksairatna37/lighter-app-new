@@ -24,17 +24,27 @@ const Trade = () => {
   const navigate = useNavigate();
 
   const { user, authenticated, getAccessToken } = usePrivy(); // Use getAccessToken instead of signMessage
-  const { balance, usdcBalance, usdValue, isLoading } = useWalletStore();
+  const { balance, usdValue, isLoading } = useWalletStore();
   const { address, logout, refetchBalance } = useWallet();
 
+
+ const [usdcBalance, setUsdcBalance] = useState(0);
+ const [pointsBalance, setPointsBalance] = useState(0);
+
+
   const stored = localStorage.getItem(address);
+
+
+
+
+
+
+
   const [usersupabase, setUsersupabase] = useState("");
   const [expected_points, setexpected_points] = useState("");
   const [expected_usdl, setexpected_usdl] = useState("");
 
-  const usdlBalance = "995.00";
-  const pointsBalance = "12.5";
-  const availablePoints = "15.7";
+
   const buyPrice = "52.30";
   const sellPrice = "48.70";
   const tradeFee = 2; // 2%
@@ -52,6 +62,9 @@ const Trade = () => {
           walletAddress: address
         });
       }
+      const localdata = JSON.parse(stored);
+      setUsdcBalance(localdata.usdl_balance || 0)
+      setPointsBalance(localdata.total_points || 0)
     };
 
     fetchReferralCode();
@@ -125,7 +138,7 @@ const Trade = () => {
   const calc = calculateTransaction();
 
   const setPercentage = (percentage: number) => {
-    const max = activeMode === 'buy' ? parseFloat(usdlBalance) : parseFloat(availablePoints);
+    const max = activeMode === 'buy' ? usdcBalance : pointsBalance;
     setAmount(((max * percentage) / 100).toFixed(2));
   };
 
@@ -538,7 +551,7 @@ const Trade = () => {
       >
         <div className="flex justify-between items-center mb-4">
           <span className="text-golden-light font-extralight opacity-60">Available</span>
-          <span className="text-golden-light font-bold">${usdcBalance} USDL</span>
+          <span className="text-golden-light font-bold">{usdcBalance} USDL</span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-golden-light font-extralight opacity-60">Total Points</span>
@@ -600,7 +613,7 @@ const Trade = () => {
 
         {/* Amount Input Section - Matching Farm component style */}
         <label className="text-golden-light text-lg font-semibold mb-4 block">
-          {activeMode === 'buy' ? 'Spend Amount:' : 'Sell Amount:'}
+          {activeMode === 'buy' ? 'Buy Amount:' : 'Sell Amount:'}
         </label>
 
         {/* Amount Input - Matching Farm component exact styling */}
@@ -662,7 +675,7 @@ const Trade = () => {
         </div>
 
         <div className="text-sm text-golden-light font-extralight opacity-60 mb-6">
-          Available: {activeMode === 'buy' ? `${usdcBalance} USDC` : `${availablePoints} Points`}
+          Available: {activeMode === 'buy' ? `${usdcBalance} USDC` : `${pointsBalance} Points`}
         </div>
 
         {/* Transaction Details */}
