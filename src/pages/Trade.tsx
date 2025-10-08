@@ -15,11 +15,45 @@ import sell from "@/assets/sell.png";
 import { useWallet, useWalletStore } from "@/hooks/useWallet";
 import { usePrivy } from "@privy-io/react-auth";
 import axios from "axios";
+import BuySuccessModal from './BuySuccessModal';
+import SellSuccessModal from './SellSuccessModal';
+
+// Types for the trading responses
+interface BuySuccessData {
+  transaction_id: string;
+  tx_hash: string;
+  usdl_spent: string;
+  points_received: string;
+  exchange_rate: string;
+  price_impact: string;
+  new_usdl_balance: string;
+  new_points_balance: string;
+  timestamp: string;
+}
+
+interface SellSuccessData {
+  transaction_id: string;
+  tx_hash: string;
+  points_sold: string;
+  usdl_received: string;
+  exchange_rate: string;
+  price_impact: string;
+  new_points_balance: string;
+  new_usdl_balance: string;
+  timestamp: string;
+}
 
 const Trade = () => {
   const [activeMode, setActiveMode] = useState<'buy' | 'sell'>('buy');
   const [amount, setAmount] = useState("");
   const [isTrading, setIsTrading] = useState(false);
+  
+  // Modal states
+  const [showBuySuccessModal, setShowBuySuccessModal] = useState(false);
+  const [showSellSuccessModal, setShowSellSuccessModal] = useState(false);
+  const [buySuccessData, setBuySuccessData] = useState<BuySuccessData | null>(null);
+  const [sellSuccessData, setSellSuccessData] = useState<SellSuccessData | null>(null);
+  
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -34,16 +68,9 @@ const Trade = () => {
 
   const stored = localStorage.getItem(address);
 
-
-
-
-
-
-
   const [usersupabase, setUsersupabase] = useState("");
   const [expected_points, setexpected_points] = useState("");
   const [expected_usdl, setexpected_usdl] = useState("");
-
 
   const buyPrice = "52.30";
   const sellPrice = "48.70";
@@ -197,7 +224,7 @@ const Trade = () => {
         'Accept': 'application/json',
       };
 
-      console.log('🚀 Making stake request with auth token:', {
+      console.log('🚀 Making buy request with auth token:', {
         url: '/api/points/buy',
         method: 'POST',
         headers: {
@@ -216,7 +243,7 @@ const Trade = () => {
 
       const response = await axios.post('/api/points/buy', requestData, { headers });
 
-      console.log('✅ Stake response:', {
+      console.log('✅ Buy response:', {
         status: response.status,
         statusText: response.statusText,
         headers: response.headers,
@@ -224,13 +251,22 @@ const Trade = () => {
       });
 
       if (response.status === 200 && response.data?.success) {
-        toast({
-          title: "🎯 Buy Successful!",
-          description: `Buyed $${amount} USDL successfully`,
-          duration: 2000,
-        });
+        // Store the success data and show modal instead of toast
+        setBuySuccessData(response.data.data);
+        setShowBuySuccessModal(true);
         setAmount("");
         refetchBalance?.();
+        
+        // Optional: Play success sound
+        if (window.Audio) {
+          try {
+            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApFn+DyvmMcBS2FzvLZiDYIG2m+7+WiTAwO'); 
+            audio.volume = 0.3;
+            audio.play().catch(() => {}); // Ignore errors
+          } catch (e) {
+            // Ignore audio errors
+          }
+        }
       } else {
         toast({
           title: 'Buy failed',
@@ -239,76 +275,23 @@ const Trade = () => {
         });
       }
     } catch (error) {
-      console.error('❌ Buy error details:', {
-        error,
-        message: error.message,
-        name: error.name,
-        code: error.code,
-        isAxiosError: axios.isAxiosError(error),
-      });
-
+      console.error('❌ Buy error details:', error);
       let errorMessage = 'Network or server error';
       let errorTitle = 'Buy Error';
 
-      if (axios.isAxiosError(error)) {
-        console.log('🔍 Axios error details:', {
-          hasResponse: !!error.response,
-          hasRequest: !!error.request,
-          config: error.config,
-          response: error.response ? {
-            status: error.response.status,
-            statusText: error.response.statusText,
-            headers: error.response.headers,
-            data: error.response.data
-          } : null
-        });
-
-        if (error.response) {
-          const status = error.response.status;
-          const data = error.response.data;
-
-          console.log(`🚨 Server responded with ${status}:`, data);
-
-          if (status === 400) {
-            errorTitle = 'Invalid Request';
-            // Try to extract nested error message from detail.error.message
-            if (data?.detail?.error?.message) {
-              errorMessage = data.detail.error.message;
-            } else if (data?.error?.message) {
-              errorMessage = data.error.message;
-            } else if (data?.error) {
-              errorMessage = data.error;
-            } else if (data?.message) {
-              errorMessage = data.message;
-            } else {
-              errorMessage = 'Please check your input and try again';
-            }
-          } else if (status === 401) {
-            errorTitle = 'Authentication Failed';
-            errorMessage = data?.error?.message || 'Wallet authentication failed. Please reconnect your wallet and try again.';
-            console.log('🔐 Authentication error details:', data?.error);
-          } else if (status === 404) {
-            errorTitle = 'API Endpoint Not Found';
-            errorMessage = 'The API endpoint is not available. Please check if your server is running.';
-          } else if (status >= 500) {
-            errorTitle = 'Server Error';
-            errorMessage = 'Server is temporarily unavailable. Please try again later';
-          } else {
-            errorMessage = data?.error?.message || data?.error || data?.message || `Server error (${status})`;
-          }
-        } else if (error.request) {
-          errorTitle = 'Connection Error';
-          errorMessage = 'Unable to connect to server. Please check your internet connection.';
-        } else {
-          errorMessage = error.message || 'Failed to make request';
+      if (axios.isAxiosError(error) && error.response) {
+        const status = error.response.status;
+        const data = error.response.data;
+        if (status === 400) {
+          errorTitle = 'Invalid Request';
+          errorMessage = data?.detail?.error?.message || data?.error?.message || data?.error || data?.message || 'Please check your input and try again';
+        } else if (status === 401) {
+          errorTitle = 'Authentication Failed';
+          errorMessage = data?.error?.message || 'Wallet authentication failed. Please reconnect your wallet and try again.';
+        } else if (status >= 500) {
+          errorTitle = 'Server Error';
+          errorMessage = 'Server is temporarily unavailable. Please try again later';
         }
-      } else if (error.message && error.message.includes('access token')) {
-        errorTitle = 'Authentication Error';
-        errorMessage = 'Failed to authenticate. Please try logging out and back in.';
-      } else if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
       }
 
       toast({
@@ -376,7 +359,7 @@ const Trade = () => {
         'Accept': 'application/json',
       };
 
-      console.log('🚀 Making stake request with auth token:', {
+      console.log('🚀 Making sell request with auth token:', {
         url: '/api/points/sell',
         method: 'POST',
         headers: {
@@ -395,7 +378,7 @@ const Trade = () => {
 
       const response = await axios.post('/api/points/sell', requestData, { headers });
 
-      console.log('✅ Stake response:', {
+      console.log('✅ Sell response:', {
         status: response.status,
         statusText: response.statusText,
         headers: response.headers,
@@ -403,13 +386,22 @@ const Trade = () => {
       });
 
       if (response.status === 200 && response.data?.success) {
-        toast({
-          title: "🎯 Sell Successful!",
-          description: `Selled ${amount} points successfully`,
-          duration: 2000,
-        });
+        // Store the success data and show modal instead of toast
+        setSellSuccessData(response.data.data);
+        setShowSellSuccessModal(true);
         setAmount("");
         refetchBalance?.();
+        
+        // Optional: Play success sound
+        if (window.Audio) {
+          try {
+            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApFn+DyvmMcBS2FzvLZiDYIG2m+7+WiTAwO'); 
+            audio.volume = 0.3;
+            audio.play().catch(() => {}); // Ignore errors
+          } catch (e) {
+            // Ignore audio errors
+          }
+        }
       } else {
         toast({
           title: 'Sell failed',
@@ -418,76 +410,23 @@ const Trade = () => {
         });
       }
     } catch (error) {
-      console.error('❌ Sell error details:', {
-        error,
-        message: error.message,
-        name: error.name,
-        code: error.code,
-        isAxiosError: axios.isAxiosError(error),
-      });
-
+      console.error('❌ Sell error details:', error);
       let errorMessage = 'Network or server error';
       let errorTitle = 'Sell Error';
 
-      if (axios.isAxiosError(error)) {
-        console.log('🔍 Axios error details:', {
-          hasResponse: !!error.response,
-          hasRequest: !!error.request,
-          config: error.config,
-          response: error.response ? {
-            status: error.response.status,
-            statusText: error.response.statusText,
-            headers: error.response.headers,
-            data: error.response.data
-          } : null
-        });
-
-        if (error.response) {
-          const status = error.response.status;
-          const data = error.response.data;
-
-          console.log(`🚨 Server responded with ${status}:`, data);
-
-          if (status === 400) {
-            errorTitle = 'Invalid Request';
-            // Try to extract nested error message from detail.error.message
-            if (data?.detail?.error?.message) {
-              errorMessage = data.detail.error.message;
-            } else if (data?.error?.message) {
-              errorMessage = data.error.message;
-            } else if (data?.error) {
-              errorMessage = data.error;
-            } else if (data?.message) {
-              errorMessage = data.message;
-            } else {
-              errorMessage = 'Please check your input and try again';
-            }
-          } else if (status === 401) {
-            errorTitle = 'Authentication Failed';
-            errorMessage = data?.error?.message || 'Wallet authentication failed. Please reconnect your wallet and try again.';
-            console.log('🔐 Authentication error details:', data?.error);
-          } else if (status === 404) {
-            errorTitle = 'API Endpoint Not Found';
-            errorMessage = 'The API endpoint is not available. Please check if your server is running.';
-          } else if (status >= 500) {
-            errorTitle = 'Server Error';
-            errorMessage = 'Server is temporarily unavailable. Please try again later';
-          } else {
-            errorMessage = data?.error?.message || data?.error || data?.message || `Server error (${status})`;
-          }
-        } else if (error.request) {
-          errorTitle = 'Connection Error';
-          errorMessage = 'Unable to connect to server. Please check your internet connection.';
-        } else {
-          errorMessage = error.message || 'Failed to make request';
+      if (axios.isAxiosError(error) && error.response) {
+        const status = error.response.status;
+        const data = error.response.data;
+        if (status === 400) {
+          errorTitle = 'Invalid Request';
+          errorMessage = data?.detail?.error?.message || data?.error?.message || data?.error || data?.message || 'Please check your input and try again';
+        } else if (status === 401) {
+          errorTitle = 'Authentication Failed';
+          errorMessage = data?.error?.message || 'Wallet authentication failed. Please reconnect your wallet and try again.';
+        } else if (status >= 500) {
+          errorTitle = 'Server Error';
+          errorMessage = 'Server is temporarily unavailable. Please try again later';
         }
-      } else if (error.message && error.message.includes('access token')) {
-        errorTitle = 'Authentication Error';
-        errorMessage = 'Failed to authenticate. Please try logging out and back in.';
-      } else if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
       }
 
       toast({
@@ -511,252 +450,293 @@ const Trade = () => {
     }
 
     if (activeMode === "buy") {
-      // Call the proper buy function with all validation and real API request
       await handleBuy();
-      return;
     } else if (activeMode === "sell") {
-      // Call the proper sell function with all validation and real API request
       await handleSell();
-      return;
     }
+  };
 
+  // Modal handlers
+  const handleCloseBuySuccessModal = () => {
+    setShowBuySuccessModal(false);
+    setBuySuccessData(null);
+  };
+
+  const handleCloseSellSuccessModal = () => {
+    setShowSellSuccessModal(false);
+    setSellSuccessData(null);
+  };
+
+  const handleBuyAgain = () => {
+    setShowBuySuccessModal(false);
+    setBuySuccessData(null);
+    setActiveMode('buy');
+    setTimeout(() => {
+      const input = document.querySelector('input[type="number"]') as HTMLInputElement;
+      if (input) input.focus();
+    }, 100);
+  };
+
+  const handleSellAgain = () => {
+    setShowSellSuccessModal(false);
+    setSellSuccessData(null);
+    setActiveMode('sell');
+    setTimeout(() => {
+      const input = document.querySelector('input[type="number"]') as HTMLInputElement;
+      if (input) input.focus();
+    }, 100);
   };
 
   return (
-    <Container className="bg-background min-h-screen pb-24 px-4">
-      {/* Header - Matching Farm component style */}
-      <header className="flex items-center justify-between py-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate(-1)}
-          className="h-10 w-10 bg-golden-light rounded-full hover:bg-golden-light/90"
-        >
-          <ArrowLeft className="w-8 h-8 text-background" />
-        </Button>
-
-        <div className="text-center flex-1">
-          <h1 className="text-xl font-bold text-golden-light">Buy/Sell</h1>
-          <p className="text-sm text-golden-light/80">with USDL</p>
-        </div>
-
-        <img src={logo} alt="" className="h-8 w-auto" />
-      </header>
-
-      {/* Balance Card - Matching Farm component style */}
-      <motion.div
-        className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-4"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        <div className="flex justify-between items-center mb-4">
-          <span className="text-golden-light font-extralight opacity-60">Available</span>
-          <span className="text-golden-light font-bold">{usdcBalance} USDL</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-golden-light font-extralight opacity-60">Total Points</span>
-          <span className="text-golden-light font-bold">{pointsBalance}</span>
-        </div>
-      </motion.div>
-
-      {/* Mode Toggle Buttons */}
-      <motion.div
-        className="grid grid-cols-2 gap-3 mb-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-      >
-        <Button
-          onClick={() => { setActiveMode('buy'); setAmount("") }}
-          className={`h-14 text-lg font-semibold rounded-xm ${activeMode === 'buy'
-            ? 'bg-gradient-to-r from-[#7D5A02] to-[#A07715] text-white hover:opacity-90'
-            : 'bg-transparent border-2 border-golden-light/10 text-white/30 hover:bg-golden-light/10'
-            }`}
-        >
-          {activeMode === 'buy' ? <img src={buy} alt="" className="h-8 invert w-auto" /> : <img src={sell} alt="" className="h-8 invert opacity-30 w-auto" />}
-          BUY Points
-        </Button>
-        <Button
-          onClick={() => { setActiveMode('sell'); setAmount("") }}
-          className={`h-14 text-lg font-semibold rounded-md ${activeMode === 'sell'
-            ? 'bg-gradient-to-r from-[#7D5A02] to-[#A07715] text-white hover:opacity-90'
-            : 'bg-transparent border-2 border-golden-light/10 text-white/30 hover:bg-golden-light/10'
-            }`}
-        >
-          {activeMode === 'sell' ? <img src={sell} alt="" className="h-8 invert w-auto" /> : <img src={sell} alt="" className="h-8 invert opacity-30 w-auto" />}
-          SELL Points
-        </Button>
-      </motion.div>
-
-      {/* Transaction Card - Matching Farm component style */}
-      <motion.div
-        className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-      >
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 bg-golden-light rounded-md flex items-center justify-center">
-
-            {activeMode === 'buy' ? <img src={buy} alt="" className="h-12 w-auto" /> : <img src={sell} alt="" className="h-12 w-auto" />}
-          </div>
-          <div>
-            <div className="font-semibold text-golden-light text-lg">
-              {activeMode === 'buy' ? 'BUY' : 'SELL'} Points
-            </div>
-            <div className="text-sm text-golden-light font-extralight opacity-60">
-              ${activeMode === 'buy' ? buyPrice : sellPrice}/point
-            </div>
-          </div>
-        </div>
-
-        {/* Amount Input Section - Matching Farm component style */}
-        <label className="text-golden-light text-lg font-semibold mb-4 block">
-          {activeMode === 'buy' ? 'Buy Amount:' : 'Sell Amount:'}
-        </label>
-
-        {/* Amount Input - Matching Farm component exact styling */}
-        <div className="border-2 text-golden-light rounded-sm px-4 py-2 mb-4 flex items-center justify-between">
-          <Input
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="0.00"
-            className="bg-transparent border-none text-golden-light text-2xl font-bold focus-visible:ring-0 focus-visible:ring-offset-0 p-0 h-auto [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-          />
-          <div className="flex items-center gap-2">
-            <div className="flex flex-col">
-              <button
-                onClick={() => setAmount((parseFloat(amount || "0") + 1).toFixed(2))}
-                className="text-golden-light hover:text-golden-light/70"
-              >
-                <ChevronUp className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setAmount(Math.max(0, parseFloat(amount || "0") - 1).toFixed(2))}
-                className="text-golden-light hover:text-golden-light/70"
-              >
-                <ChevronDown className="w-4 h-4" />
-              </button>
-            </div>
-            <span className="text-golden-light text-md font-semibold ml-2">
-              {activeMode === 'buy' ? 'USDL' : 'Points'}
-            </span>
-          </div>
-        </div>
-
-        {/* Percentage Buttons - Matching Farm component style */}
-        <div className="grid grid-cols-4 gap-3 mb-4">
+    <>
+      <Container className="bg-background min-h-screen pb-24 px-4">
+        {/* Header - Matching Farm component style */}
+        <header className="flex items-center justify-between py-6">
           <Button
-            onClick={() => setPercentage(25)}
-            className="bg-[#D4B679]/90 hover:bg-[#D4B679] text-background font-bold h-10"
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(-1)}
+            className="h-10 w-10 bg-golden-light rounded-full hover:bg-golden-light/90"
           >
-            25%
+            <ArrowLeft className="w-8 h-8 text-background" />
           </Button>
-          <Button
-            onClick={() => setPercentage(50)}
-            className="bg-[#D4B679]/90 hover:bg-[#D4B679] text-background font-bold h-10"
-          >
-            50%
-          </Button>
-          <Button
-            onClick={() => setPercentage(75)}
-            className="bg-[#D4B679]/90 hover:bg-[#D4B679] text-background font-bold h-10"
-          >
-            75%
-          </Button>
-          <Button
-            onClick={() => setPercentage(100)}
-            className="bg-[#D4B679]/90 hover:bg-[#D4B679] text-background font-bold h-10"
-          >
-            MAX
-          </Button>
-        </div>
 
-        <div className="text-sm text-golden-light font-extralight opacity-60 mb-6">
-          Available: {activeMode === 'buy' ? `${usdcBalance} USDC` : `${pointsBalance} Points`}
-        </div>
-
-        {/* Transaction Details */}
-        <div className="space-y-3">
-          <div className="flex justify-between items-center">
-            <span className="text-golden-light font-extralight opacity-60">You'll receive</span>
-            <span className="text-foreground font-semibold">
-              ~{calc.receive} {calc.receiveLabel}
-            </span>
+          <div className="text-center flex-1">
+            <h1 className="text-xl font-bold text-golden-light">Buy/Sell</h1>
+            <p className="text-sm text-golden-light/80">with USDL</p>
           </div>
 
-          <div className="flex justify-between items-center pb-3">
-            <span className="text-golden-light font-extralight opacity-60">Trading fee</span>
-            <span className="text-foreground font-semibold">
-              ${calc.fee} USDL
-            </span>
-          </div>
+          <img src={logo} alt="" className="h-8 w-auto" />
+        </header>
 
-          <div className="border-t border-golden-light/20 pt-3">
-            <div className="flex justify-between items-center">
-              <span className="text-golden-light font-extralight opacity-60">
-                {activeMode === 'buy' ? 'Total cost' : "You'll receive"}
-              </span>
-              <span className="text-foreground font-semibold">
-                ${activeMode === 'buy' ? calc.total : calc.receive} USDL
-              </span>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Action Button - Matching Farm component style */}
-      <Button
-        onClick={handleTrade}
-        disabled={!amount || parseFloat(amount) <= 0 || isTrading}
-        className="w-full h-14 bg-gradient-to-r from-[#7D5A02] to-[#A07715] hover:opacity-90 text-background text-lg font-bold rounded-md text-white mb-6 disabled:opacity-50"
-      >
-        {isTrading ? (
-          <>
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-              className="mr-2 inline-block"
-            >
-
-            </motion.div>
-            Processing...
-          </>
-        ) : (
-          <>
-            {activeMode === 'buy' ? <img src={buy} alt="" className="h-8 invert w-auto" /> : <img src={sell} alt="" className="h-8 invert w-auto" />}
-
-            {activeMode === 'buy' ? 'BUY' : 'SELL'} Now
-          </>
-        )}
-      </Button>
-
-      {/* Projections Card - Show transaction preview when amount is entered */}
-      {amount && parseFloat(amount) > 0 && (
+        {/* Balance Card - Matching Farm component style */}
         <motion.div
+          className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-4"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-6"
         >
-          <h3 className="text-golden-light text-lg font-semibold mb-4">Transaction Preview:</h3>
+          <div className="flex justify-between items-center mb-4">
+            <span className="text-golden-light font-extralight opacity-60">Available</span>
+            <span className="text-golden-light font-bold">{usdcBalance} USDL</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-golden-light font-extralight opacity-60">Total Points</span>
+            <span className="text-golden-light font-bold">{pointsBalance}</span>
+          </div>
+        </motion.div>
+
+        {/* Mode Toggle Buttons */}
+        <motion.div
+          className="grid grid-cols-2 gap-3 mb-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          <Button
+            onClick={() => { setActiveMode('buy'); setAmount("") }}
+            className={`h-14 text-lg font-semibold rounded-xm ${activeMode === 'buy'
+              ? 'bg-gradient-to-r from-[#7D5A02] to-[#A07715] text-white hover:opacity-90'
+              : 'bg-transparent border-2 border-golden-light/10 text-white/30 hover:bg-golden-light/10'
+              }`}
+          >
+            {activeMode === 'buy' ? <img src={buy} alt="" className="h-8 invert w-auto" /> : <img src={sell} alt="" className="h-8 invert opacity-30 w-auto" />}
+            BUY Points
+          </Button>
+          <Button
+            onClick={() => { setActiveMode('sell'); setAmount("") }}
+            className={`h-14 text-lg font-semibold rounded-md ${activeMode === 'sell'
+              ? 'bg-gradient-to-r from-[#7D5A02] to-[#A07715] text-white hover:opacity-90'
+              : 'bg-transparent border-2 border-golden-light/10 text-white/30 hover:bg-golden-light/10'
+              }`}
+          >
+            {activeMode === 'sell' ? <img src={sell} alt="" className="h-8 invert w-auto" /> : <img src={sell} alt="" className="h-8 invert opacity-30 w-auto" />}
+            SELL Points
+          </Button>
+        </motion.div>
+
+        {/* Transaction Card - Matching Farm component style */}
+        <motion.div
+          className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 bg-golden-light rounded-md flex items-center justify-center">
+              {activeMode === 'buy' ? <img src={buy} alt="" className="h-12 w-auto" /> : <img src={sell} alt="" className="h-12 w-auto" />}
+            </div>
+            <div>
+              <div className="font-semibold text-golden-light text-lg">
+                {activeMode === 'buy' ? 'BUY' : 'SELL'} Points
+              </div>
+              <div className="text-sm text-golden-light font-extralight opacity-60">
+                ${activeMode === 'buy' ? buyPrice : sellPrice}/point
+              </div>
+            </div>
+          </div>
+
+          {/* Amount Input Section - Matching Farm component style */}
+          <label className="text-golden-light text-lg font-semibold mb-4 block">
+            {activeMode === 'buy' ? 'Buy Amount:' : 'Sell Amount:'}
+          </label>
+
+          {/* Amount Input - Matching Farm component exact styling */}
+          <div className="border-2 text-golden-light rounded-sm px-4 py-2 mb-4 flex items-center justify-between">
+            <Input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.00"
+              className="bg-transparent border-none text-golden-light text-2xl font-bold focus-visible:ring-0 focus-visible:ring-offset-0 p-0 h-auto [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+            <div className="flex items-center gap-2">
+              <div className="flex flex-col">
+                <button
+                  onClick={() => setAmount((parseFloat(amount || "0") + 1).toFixed(2))}
+                  className="text-golden-light hover:text-golden-light/70"
+                >
+                  <ChevronUp className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setAmount(Math.max(0, parseFloat(amount || "0") - 1).toFixed(2))}
+                  className="text-golden-light hover:text-golden-light/70"
+                >
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+              </div>
+              <span className="text-golden-light text-md font-semibold ml-2">
+                {activeMode === 'buy' ? 'USDL' : 'Points'}
+              </span>
+            </div>
+          </div>
+
+          {/* Percentage Buttons - Matching Farm component style */}
+          <div className="grid grid-cols-4 gap-3 mb-4">
+            <Button
+              onClick={() => setPercentage(25)}
+              className="bg-[#D4B679]/90 hover:bg-[#D4B679] text-background font-bold h-10"
+            >
+              25%
+            </Button>
+            <Button
+              onClick={() => setPercentage(50)}
+              className="bg-[#D4B679]/90 hover:bg-[#D4B679] text-background font-bold h-10"
+            >
+              50%
+            </Button>
+            <Button
+              onClick={() => setPercentage(75)}
+              className="bg-[#D4B679]/90 hover:bg-[#D4B679] text-background font-bold h-10"
+            >
+              75%
+            </Button>
+            <Button
+              onClick={() => setPercentage(100)}
+              className="bg-[#D4B679]/90 hover:bg-[#D4B679] text-background font-bold h-10"
+            >
+              MAX
+            </Button>
+          </div>
+
+          <div className="text-sm text-golden-light font-extralight opacity-60 mb-6">
+            Available: {activeMode === 'buy' ? `${usdcBalance} USDC` : `${pointsBalance} Points`}
+          </div>
+
+          {/* Transaction Details */}
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-golden-light font-extralight opacity-60">Price per point</span>
-              <span className="text-foreground font-semibold">${activeMode === 'buy' ? buyPrice : sellPrice}</span>
-            </div>
-            <div className="flex justify-between items-center">
               <span className="text-golden-light font-extralight opacity-60">You'll receive</span>
-              <span className="text-foreground font-semibold">~{calc.receive} {calc.receiveLabel}</span>
+              <span className="text-foreground font-semibold">
+                ~{calc.receive} {calc.receiveLabel}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center pb-3">
+              <span className="text-golden-light font-extralight opacity-60">Trading fee</span>
+              <span className="text-foreground font-semibold">
+                ${calc.fee} USDL
+              </span>
+            </div>
+
+            <div className="border-t border-golden-light/20 pt-3">
+              <div className="flex justify-between items-center">
+                <span className="text-golden-light font-extralight opacity-60">
+                  {activeMode === 'buy' ? 'Total cost' : "You'll receive"}
+                </span>
+                <span className="text-foreground font-semibold">
+                  ${activeMode === 'buy' ? calc.total : calc.receive} USDL
+                </span>
+              </div>
             </div>
           </div>
         </motion.div>
-      )}
 
-      <BottomNavigation />
-    </Container>
+        {/* Action Button - Matching Farm component style */}
+        <Button
+          onClick={handleTrade}
+          disabled={!amount || parseFloat(amount) <= 0 || isTrading || !authenticated || !address || !usersupabase}
+          className="w-full h-14 bg-gradient-to-r from-[#7D5A02] to-[#A07715] hover:opacity-90 text-background text-lg font-bold rounded-md text-white mb-6 disabled:opacity-50"
+        >
+          {isTrading ? (
+            <>
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                className="mr-2 inline-block"
+              >
+                <Zap className="w-5 h-5" />
+              </motion.div>
+              Processing...
+            </>
+          ) : (
+            <>
+              {activeMode === 'buy' ? <img src={buy} alt="" className="h-8 invert w-auto" /> : <img src={sell} alt="" className="h-8 invert w-auto" />}
+              {activeMode === 'buy' ? 'BUY' : 'SELL'} Now
+            </>
+          )}
+        </Button>
+
+        {/* Projections Card - Show transaction preview when amount is entered */}
+        {amount && parseFloat(amount) > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-6"
+          >
+            <h3 className="text-golden-light text-lg font-semibold mb-4">Transaction Preview:</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-golden-light font-extralight opacity-60">Price per point</span>
+                <span className="text-foreground font-semibold">${activeMode === 'buy' ? buyPrice : sellPrice}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-golden-light font-extralight opacity-60">You'll receive</span>
+                <span className="text-foreground font-semibold">~{calc.receive} {calc.receiveLabel}</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        <BottomNavigation />
+      </Container>
+
+      {/* Success Modals */}
+      <BuySuccessModal
+        isOpen={showBuySuccessModal}
+        onClose={handleCloseBuySuccessModal}
+        data={buySuccessData}
+        onBuyAgain={handleBuyAgain}
+      />
+
+      <SellSuccessModal
+        isOpen={showSellSuccessModal}
+        onClose={handleCloseSellSuccessModal}
+        data={sellSuccessData}
+        onSellAgain={handleSellAgain}
+      />
+    </>
   );
 };
 
