@@ -121,6 +121,10 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
           wallet_address: address,
         });
 
+       const lighterpointsdata = await axios.get("/api/points/price");
+       const lighterpointprice = lighterpointsdata.data;
+
+
         const data = response.data;
 
         if (data) {

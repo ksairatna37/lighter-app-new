@@ -105,6 +105,7 @@ app.post('/api/referral/register-user', async (req, res) => {
 
 
 
+
 app.post('/api/stake', async (req, res) => {
   try {
     // Extract required data from request body
@@ -240,6 +241,53 @@ app.post('/api/stake', async (req, res) => {
     });
   }
 });
+
+
+app.get('/api/points/price', async (req, res) => {
+  try {
+    // Only send application/json header
+    const backendHeaders = {
+      'Accept': 'application/json'
+    };
+
+    console.log('🚀 Forwarding /api/points/price GET request to backend (headers only):', {
+      url: `${BASE_URL}api/points/price`,
+      headers: backendHeaders
+    });
+
+    // Make GET request to backend
+    const response = await fetch(`${BASE_URL}api/points/price`, {
+      method: 'GET',
+      headers: backendHeaders
+    });
+
+    // Get response data
+    const responseData = await response.json();
+
+    console.log('📤 Backend response:', {
+      status: response.status,
+      statusText: response.statusText,
+      data: responseData
+    });
+
+    // Forward the response status and data
+    if (response.ok) {
+      res.status(200).json(responseData);
+    } else {
+      res.status(response.status).json(responseData);
+    }
+
+  } catch (error) {
+    console.error('💥 Error in /api/points/price:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+});
+
+
 
 
 app.post('/api/unstake', async (req, res) => {
