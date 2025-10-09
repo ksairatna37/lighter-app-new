@@ -227,8 +227,7 @@ const InviteOnly = () => {
     <div className="min-h-screen bg-background flex flex-col py-6 px-4">
       
 
-      {user.id}<br/>
-      {address}
+
       {/* Authentication Warning */}
       {!authenticated && (
         <motion.div

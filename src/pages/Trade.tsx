@@ -47,13 +47,13 @@ const Trade = () => {
   const [activeMode, setActiveMode] = useState<'buy' | 'sell'>('buy');
   const [amount, setAmount] = useState("");
   const [isTrading, setIsTrading] = useState(false);
-  
+
   // Modal states
   const [showBuySuccessModal, setShowBuySuccessModal] = useState(false);
   const [showSellSuccessModal, setShowSellSuccessModal] = useState(false);
   const [buySuccessData, setBuySuccessData] = useState<BuySuccessData | null>(null);
   const [sellSuccessData, setSellSuccessData] = useState<SellSuccessData | null>(null);
-  
+
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -62,8 +62,8 @@ const Trade = () => {
   const { address, logout, refetchBalance } = useWallet();
 
 
- const [usdcBalance, setUsdcBalance] = useState(0);
- const [pointsBalance, setPointsBalance] = useState(0);
+  const [usdcBalance, setUsdcBalance] = useState(0);
+  const [pointsBalance, setPointsBalance] = useState(0);
 
 
   const stored = localStorage.getItem(address);
@@ -72,9 +72,9 @@ const Trade = () => {
   const [expected_points, setexpected_points] = useState("");
   const [expected_usdl, setexpected_usdl] = useState("");
 
-  const buyPrice = "52.30";
-  const sellPrice = "48.70";
-  const tradeFee = 2; // 2%
+  const buyPrice = Number(localStorage.getItem("buy price"));
+  const sellPrice = Number(localStorage.getItem("sell price"));
+  const tradeFee = 0; // 2%
 
   useEffect(() => {
     const fetchReferralCode = async () => {
@@ -123,7 +123,7 @@ const Trade = () => {
   const calculateTransaction = () => {
     const inputAmount = parseFloat(amount) || 0;
     if (activeMode === 'buy') {
-      const points = inputAmount / parseFloat(buyPrice);
+      const points = inputAmount / buyPrice;
       const fee = inputAmount * (tradeFee / 100);
       return {
         receive: points.toFixed(2),
@@ -133,7 +133,7 @@ const Trade = () => {
         totalLabel: 'USDL'
       };
     } else {
-      const usdl = inputAmount * parseFloat(sellPrice);
+      const usdl = inputAmount * sellPrice;
       const fee = usdl * (tradeFee / 100);
       return {
         receive: (usdl - fee).toFixed(2),
@@ -149,18 +149,18 @@ const Trade = () => {
   useEffect(() => {
     if (activeMode === 'buy') {
       const inputAmount = parseFloat(amount) || 0;
-      const points = inputAmount / parseFloat(buyPrice);
+      const points = inputAmount / buyPrice;
       setexpected_points(points > 0 ? points.toFixed(2) : "");
     } else if (activeMode === 'sell') {
       const inputAmount = parseFloat(amount) || 0;
-      const usdl = inputAmount * parseFloat(sellPrice);
+      const usdl = inputAmount * sellPrice;
       const fee = usdl * (tradeFee / 100);
       setexpected_usdl(usdl > 0 ? (usdl - fee).toFixed(2) : "");
     } else {
       setexpected_points("");
     }
 
-  }, [amount, activeMode, buyPrice,sellPrice]);
+  }, [amount, activeMode, buyPrice, sellPrice]);
 
   const calc = calculateTransaction();
 
@@ -256,13 +256,13 @@ const Trade = () => {
         setShowBuySuccessModal(true);
         setAmount("");
         refetchBalance?.();
-        
+
         // Optional: Play success sound
         if (window.Audio) {
           try {
-            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApFn+DyvmMcBS2FzvLZiDYIG2m+7+WiTAwO'); 
+            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApFn+DyvmMcBS2FzvLZiDYIG2m+7+WiTAwO');
             audio.volume = 0.3;
-            audio.play().catch(() => {}); // Ignore errors
+            audio.play().catch(() => { }); // Ignore errors
           } catch (e) {
             // Ignore audio errors
           }
@@ -391,13 +391,13 @@ const Trade = () => {
         setShowSellSuccessModal(true);
         setAmount("");
         refetchBalance?.();
-        
+
         // Optional: Play success sound
         if (window.Audio) {
           try {
-            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApFn+DyvmMcBS2FzvLZiDYIG2m+7+WiTAwO'); 
+            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApFn+DyvmMcBS2FzvLZiDYIG2m+7+WiTAwO');
             audio.volume = 0.3;
-            audio.play().catch(() => {}); // Ignore errors
+            audio.play().catch(() => { }); // Ignore errors
           } catch (e) {
             // Ignore audio errors
           }

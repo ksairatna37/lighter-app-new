@@ -29,6 +29,8 @@ const queryClient = new QueryClient();
 import type { ReactNode } from 'react';
 import WelcomeCongratulations from "./pages/WelcomeCongratulations";
 import Unstake from "./pages/Unstake";
+import Help from "./pages/Help";
+import Community from "./pages/Community";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -118,7 +120,7 @@ const AuthHandler = ({ children }: { children: ReactNode }) => {
 
   // Define route categories
   const publicRoutes = ['/', '/onboarding/1', '/onboarding/2', '/onboarding/3', '/wallet-connect', '/wallet-connect/success', '/invite-only'];
-  const protectedRoutes = ['/welcome-congratulations', '/dashboard', '/deposit', '/farm', 'unstake', '/trade', '/referrals', '/profile'];
+  const protectedRoutes = ['/welcome-congratulations', '/dashboard', '/deposit', '/farm', 'unstake', '/trade', '/referrals', '/profile', '/help', '/community'];
 
   const isPublicRoute = (path: string) => publicRoutes.includes(path);
   const isProtectedRoute = (path: string) => protectedRoutes.some(route => path.startsWith(route));
@@ -201,7 +203,7 @@ const NavigationInterceptor = ({ children }: { children: ReactNode }) => {
   const [lastPublicRoute, setLastPublicRoute] = useState<string>('/');
 
   const publicRoutes = ['/', '/onboarding/1', '/onboarding/2', '/onboarding/3', '/wallet-connect', '/wallet-connect/success', '/invite-only'];
-  const protectedRoutes = ['/welcome-congratulations', '/dashboard', '/deposit', '/farm', 'unstake', '/trade', '/referrals', '/profile'];
+  const protectedRoutes = ['/welcome-congratulations', '/dashboard', '/deposit', '/farm', 'unstake', '/trade', '/referrals', '/profile', '/help', '/community'];
 
   const isPublicRoute = (path: string) => publicRoutes.includes(path);
   const isProtectedRoute = (path: string) => protectedRoutes.some(route => path.startsWith(route));
@@ -371,6 +373,22 @@ const AppRoutes = () => {
             element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/help"
+            element={
+              <ProtectedRoute>
+                <Help />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/community"
+            element={
+              <ProtectedRoute>
+                <Community />
               </ProtectedRoute>
             }
           />
