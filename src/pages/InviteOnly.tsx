@@ -277,7 +277,7 @@ const InviteOnly = () => {
           <div className="border-2 text-golden-light rounded-sm px-4 py-2 mb-4 flex items-center justify-between">
             <Input
               type="text"
-              placeholder="REF_A72F778A_8DPZ13AQ"
+              placeholder="Enter Invite code here"
               value={inviteCode}
               onChange={(e) => setInviteCode(e.target.value)}
               className="bg-transparent border-none text-golden-light text-xl font-bold focus-visible:ring-0 focus-visible:ring-offset-0 p-0 h-auto placeholder:text-golden-light/30 tracking-wider"
