@@ -40,7 +40,7 @@ const Unstake = () => {
     const navigate = useNavigate();
     const { address, logout, refetchBalance } = useWallet();
     const { user, authenticated, getAccessToken } = usePrivy(); // Use getAccessToken instead of signMessage
-    const stored = localStorage.getItem(address);
+    const stored = localStorage.getItem(user.id);
 
     const { balance, usdValue, isLoading } = useWalletStore();
     const [usersupabase, setUsersupabase] = useState("");

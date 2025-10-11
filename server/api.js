@@ -15,7 +15,7 @@ const __dirname = path.dirname(__filename);
 import cors from 'cors';
 
 // Base URL for deployed backend (can be overridden via env var)
-const BASE_URL = process.env.BASE_URL || 'https://lighter-farm-backend.thankfuldesert-772ce932.westus.azurecontainerapps.io/';
+const BASE_URL = process.env.BASE_URL || 'https://lighter-farm-backend.thankfuldesert-772ce932.westus.azurecontainerapps.io';
 
 const app = express();
 
@@ -24,39 +24,36 @@ app.use(express.json());
 
 // API Routes
 // POST /api/referral/register-user
-app.post('/api/referral/register-user', async (req, res) => {
+app.post('/api/register_new_user', async (req, res) => {
   try {
     // Extract required data from request body
-    const { wallet_address, referral_code } = req.body;
-
-    // Get Privy User ID from headers
-    const privyUserId = req.headers['x-privy-user-id'];
+    const { privy_id, referral_code } = req.body;
 
     // Validate required fields
-    if (!wallet_address) {
+    if (!privy_id) {
       return res.status(400).json({
         success: false,
-        error: 'wallet_address is required'
+        error: 'privy id is required'
       });
     }
 
-    if (!privyUserId) {
+    if (!referral_code) {
       return res.status(400).json({
         success: false,
-        error: 'X-Privy-User-Id header is required'
+        error: 'referral code is required'
       });
     }
 
     // Prepare request body for backend API
     const requestBody = {
-      wallet_address,
+      privy_id,
       ...(referral_code && { referral_code }) // Only include referral_code if provided
     };
 
     console.log('Forwarding request to backend:', {
-      url: `${BASE_URL}api/referral/register-user`,
+      url: `${BASE_URL}/register_new_user`,
       headers: {
-        'X-Privy-User-Id': privyUserId,
+        'X-Privy-User-Id': privy_id,
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
@@ -64,11 +61,11 @@ app.post('/api/referral/register-user', async (req, res) => {
     });
 
     // Make request to actual backend API
-    const response = await fetch(`${BASE_URL}api/referral/register-user`, {
+    const response = await fetch(`${BASE_URL}/register_new_user`, {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
-        'X-Privy-User-Id': privyUserId,
+        'X-Privy-User-Id': privy_id,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(requestBody)
@@ -92,7 +89,7 @@ app.post('/api/referral/register-user', async (req, res) => {
     }
 
   } catch (error) {
-    console.error('Error in /api/referral/register-user:', error);
+    console.error('Error in /register_new_user:', error);
 
     // Handle network errors or other exceptions
     res.status(500).json({
@@ -102,6 +99,7 @@ app.post('/api/referral/register-user', async (req, res) => {
     });
   }
 });
+
 
 
 
@@ -251,12 +249,12 @@ app.get('/api/points/price', async (req, res) => {
     };
 
     console.log('🚀 Forwarding /api/points/price GET request to backend (headers only):', {
-      url: `${BASE_URL}api/points/price`,
+      url: `${BASE_URL}/api/points/price`,
       headers: backendHeaders
     });
 
     // Make GET request to backend
-    const response = await fetch(`${BASE_URL}api/points/price`, {
+    const response = await fetch(`${BASE_URL}/api/points/price`, {
       method: 'GET',
       headers: backendHeaders
     });
@@ -271,7 +269,7 @@ app.get('/api/points/price', async (req, res) => {
     });
 
     // Forward the response status and data
-    if (response.ok) {
+    if (response.statusText === 'OK' && response.status === 200) {
       res.status(200).json(responseData);
     } else {
       res.status(response.status).json(responseData);
@@ -695,84 +693,210 @@ app.post('/api/points/sell', async (req, res) => {
 // POST /api/check_user_exist
 app.post('/api/check_user_exist', async (req, res) => {
   try {
-    const { wallet_address } = req.body;
-    if (!wallet_address) {
-      return res.status(400).json({ success: false, error: 'wallet_address is required' });
+    const { privy_id } = req.body;
+    if (!privy_id) {
+      return res.status(400).json({ success: false, error: 'privy_id is required' });
     }
-    if (!supabase) {
-      return res.status(500).json({ success: false, error: 'Supabase client not configured' });
+
+    const backendHeaders = {
+      'Accept': 'application/json',
+      'X-Privy-User-Id': privy_id,
+      'Content-Type': 'application/json',
+    };
+
+    console.log('🔍 Checking if user exists with privy_id:', privy_id);
+
+    const apiUrl = `${BASE_URL}/api/account/privy/${privy_id}`;
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: backendHeaders,
+    });
+
+    // Try to parse the JSON response safely
+    let respJson;
+    try {
+      respJson = await response.json();
+    } catch (e) {
+      console.error('❌ Invalid JSON response from backend:', e);
+      return res.status(500).json({
+        success: false,
+        error: 'Invalid response from backend service',
+      });
     }
-    const { data, error } = await supabase
-      .from('lighter_farm_user')
-      .select('wallet_address')
-      .eq('wallet_address', wallet_address)
-      .maybeSingle();
-    if (error) {
-      return res.status(500).json({ success: false, error: error.message });
-    }
-    if (data && data.wallet_address) {
-      return res.json({ exists: 'yes' });
+
+    console.log('✅ Response from account API:', respJson);
+
+    // Check if user exists
+    if (respJson.success==="true") {
+      // user exists
+      return res.status(200).json({
+        success: true,
+        exists: 'yes',
+        user: respJson.data, // optional, if you want to forward user info
+      });
     } else {
-      return res.json({ exists: 'no' });
+      // user not found
+      return res.status(200).json({
+        success: true,
+        exists: 'no',
+        message: respJson.message || 'User not found',
+      });
     }
+
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    console.error('🔥 Error in check_user_exist:', err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || 'Internal server error',
+    });
   }
 });
+
+
 
 
 
 app.post('/api/get_referal_code', async (req, res) => {
   try {
-    const { wallet_address } = req.body;
+    const { id, privy_id } = req.body;
 
-    if (!wallet_address) {
-      return res.status(400).json({ success: false, error: 'wallet_address is required' });
-    }
-
-    if (!supabase) {
-      return res.status(500).json({ success: false, error: 'Supabase client not configured' });
-    }
-
-    // Fetch referral code for given wallet
-    const { data, error } = await supabase
-      .from('lighter_farm_user')
-      .select('id, referral_code, wallet_address, usdl_balance, points_balance, staked_amount, total_points')
-      .eq('wallet_address', wallet_address);
-
-    if (error) {
-      return res.status(500).json({ success: false, error: error.message });
-    }
-
-    if (data && data.length > 0) {
-      return res.json({
-        id: data[0].id,
-        referral_code: data[0].referral_code,
-        wallet_address: data[0].wallet_address,
-        usdl_balance: data[0].usdl_balance,
-        points_balance: data[0].points_balance,
-        staked_amount: data[0].staked_amount,
-        total_points: data[0].total_points
+    // Validate required fields
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID is required'
       });
-    } else {
-      return res.status(404).json({ success: false, error: 'Referral code not found' });
     }
 
-  } catch (err) {
-    console.error('Error in /api/get_referal_code:', err);
-    return res.status(500).json({ success: false, error: err.message });
+    if (!privy_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Privy ID is required'
+      });
+    }
+
+    const backendHeaders = {
+      'Accept': 'application/json',
+      'X-Privy-User-Id': privy_id,
+      'Content-Type': 'application/json',
+    };
+
+    console.log('🔍 Fetching balance for:', { userId: id, privyId: privy_id });
+
+    const apiUrl = `${BASE_URL}/api/balance/${id}`;
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: backendHeaders,
+    });
+
+    console.log('📡 Backend response status:', response.status);
+
+    // Check if response is JSON
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      console.error('❌ Backend returned non-JSON response:', contentType);
+      return res.status(500).json({
+        success: false,
+        error: 'Backend returned invalid response format'
+      });
+    }
+
+    let data;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      console.error('❌ Failed to parse JSON response:', parseError);
+      return res.status(500).json({
+        success: false,
+        error: 'Invalid JSON response from backend'
+      });
+    }
+
+    console.log('✅ Backend response data:', data);
+
+    // Handle successful response
+    if (response.ok && data.success && data.data) {
+      const balanceData = data.data;
+      
+      // Return the data in the format expected by frontend
+      return res.json({
+        success: true,
+        id: balanceData.user_id,
+        usdl_balance: parseFloat(balanceData.usdl_balance),
+        points_balance: parseFloat(balanceData.points_balance),
+        staked_amount: parseFloat(balanceData.staked_amount),
+        total_portfolio_value: parseFloat(balanceData.total_portfolio_value),
+        points_usd_value: parseFloat(balanceData.points_usd_value),
+        last_updated: balanceData.last_updated
+      });
+    } 
+    // Handle case where data exists but might not have the expected structure (old format)
+    else if (data && Array.isArray(data) && data.length > 0) {
+      // Legacy support for old response format
+      const balanceData = data[0];
+      return res.json({
+        success: true,
+        id: balanceData.user_id,
+        usdl_balance: parseFloat(balanceData.usdl_balance),
+        points_balance: parseFloat(balanceData.points_balance),
+        staked_amount: parseFloat(balanceData.staked_amount),
+        total_portfolio_value: parseFloat(balanceData.total_portfolio_value),
+        points_usd_value: parseFloat(balanceData.points_usd_value),
+        last_updated: balanceData.last_updated
+      });
+    }
+    // Handle error responses from backend
+    else if (!response.ok) {
+      const errorMessage = data?.error || data?.message || `Backend error: ${response.status}`;
+      console.error('❌ Backend error:', errorMessage);
+      
+      if (response.status === 404) {
+        return res.status(404).json({
+          success: false,
+          error: 'User not found'
+        });
+      } else {
+        return res.status(response.status).json({
+          success: false,
+          error: errorMessage
+        });
+      }
+    }
+    // Handle unexpected response structure
+    else {
+      console.error('❌ Unexpected response structure:', data);
+      return res.status(500).json({
+        success: false,
+        error: 'Unexpected response format from backend'
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Error in /api/get_referal_code:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+
+    // Handle different types of errors
+    let errorResponse = {
+      success: false,
+      error: 'Internal server error',
+      message: error.message
+    };
+
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      errorResponse.error = 'Backend connection failed';
+      errorResponse.details = 'Cannot connect to backend server';
+    } else if (error.name === 'SyntaxError' && error.message.includes('JSON')) {
+      errorResponse.error = 'Backend response parsing error';
+      errorResponse.details = 'Invalid JSON response from backend';
+    }
+
+    return res.status(500).json(errorResponse);
   }
 });
 
-
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    backend_url: BASE_URL
-  });
-});
 
 // Serve static files from React build
 app.use(express.static(path.join(__dirname, '../dist')));

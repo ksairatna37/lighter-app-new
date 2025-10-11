@@ -23,167 +23,203 @@ const InviteOnly = () => {
     navigate("/wallet-connect/success");
   };
 
-  const handleContinue = async () => {
-    // Validation checks
-    if (!inviteCode.trim()) {
+ const handleContinue = async () => {
+  // Validation checks
+  if (!inviteCode.trim()) {
+    toast({
+      title: "Code Required",
+      description: "Please enter an invite code to continue",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  if (!authenticated || !user?.id) {
+    toast({
+      title: "Authentication Required",
+      description: "Please authenticate with Privy first",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  if (!address) {
+    toast({
+      title: "Wallet Required",
+      description: "Please connect your wallet first",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  setIsValidating(true);
+
+  try {
+    const requestData = {
+      privy_id: user.id,
+      referral_code: inviteCode.trim(),
+    };
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    };
+
+    console.log('🚀 Making registration request:', {
+      url: '/register_new_user',
+      method: 'POST',
+      headers: headers,
+      data: requestData,
+      baseURL: axios.defaults.baseURL || window.location.origin
+    });
+
+    const response = await axios.post('/api/register_new_user', requestData, {
+      headers: headers
+    });
+
+    console.log('✅ Registration response:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+      data: response.data
+    });
+
+    // Updated: Check for successful response (now handles 201 status and new response format)
+    if ((response.status === 200 || response.status === 201) && response.data?.success) {
+      const { user: registeredUser, referral_info, message } = response.data;
+      
+      // Show success toast with detailed referral bonus info
+      let successMessage = message || "Welcome to LighterFarm!";
+      
+      if (referral_info?.bonus_points_received) {
+        successMessage = `🎁 You received ${referral_info.bonus_points_received} bonus points! ${referral_info.is_referred ? 'Thanks for using a referral code!' : ''}`;
+      }
+      
       toast({
-        title: "Code Required",
-        description: "Please enter an invite code to continue",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!authenticated || !user?.id) {
-      toast({
-        title: "Authentication Required",
-        description: "Please authenticate with Privy first",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!address) {
-      toast({
-        title: "Wallet Required",
-        description: "Please connect your wallet first",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsValidating(true);
-
-    try {
-      const requestData = {
-        wallet_address: address,
-        referral_code: inviteCode.trim(),
-      };
-
-      const headers = {
-        'X-Privy-User-Id': user.id,
-        'X-Wallet-Address': address,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      };
-
-      console.log('🚀 Making registration request:', {
-        url: '/api/referral/register-user',
-        method: 'POST',
-        headers: headers,
-        data: requestData,
-        baseURL: axios.defaults.baseURL || window.location.origin
+        title: "🎉 Registration Successful!",
+        description: successMessage,
+        duration: 3000,
       });
 
-      const response = await axios.post('/api/referral/register-user', requestData, {
-        headers: headers
+      // Log the detailed registration information
+      console.log('📊 Registration success details:', {
+        user: registeredUser,
+        referral_info: referral_info,
+        points_balance: registeredUser?.points_balance,
+        bonus_points: registeredUser?.bonus_points,
+        referral_code: registeredUser?.referral_code,
+        wallet_address: registeredUser?.wallet_address,
+        is_referred: referral_info?.is_referred,
+        max_referrals: referral_info?.max_referrals
       });
 
-      console.log('✅ Registration response:', {
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
-        data: response.data
-      });
-
-      // Check for successful response
-      if (response.status === 200 && response.data?.success) {
-        toast({
-          title: "🎉 Registration Successful!",
-          description: "Preparing your welcome bonus...",
-          duration: 2000,
-        });
-
-        // Navigate to the welcome congratulations page
-        setTimeout(() => {
-          navigate('/welcome-congratulations');
-        }, 1000);
-      } else {
-        // Handle unexpected response format
-        toast({
-          title: 'Registration failed',
-          description: response.data?.error || 'Unexpected response from server',
-          variant: 'destructive',
-        });
+      // Store user info in localStorage for quick access
+      if (registeredUser) {
+        const userInfo = {
+          id: registeredUser.id,
+          privy_id: registeredUser.privy_id,
+          wallet_address: registeredUser.wallet_address,
+          referral_code: registeredUser.referral_code
+        };
+        
+        localStorage.setItem(user.id, JSON.stringify(userInfo));
+        console.log('💾 User info stored in localStorage:', userInfo);
       }
 
-    } catch (error) {
-      console.error('❌ Registration error details:', {
-        error: error,
-        message: error.message,
-        name: error.name,
-        code: error.code,
-        isAxiosError: axios.isAxiosError(error)
-      });
-
-      let errorMessage = 'Network or server error';
-      let errorTitle = 'Registration Error';
-
-      // Handle axios errors with response
-      if (axios.isAxiosError(error)) {
-        console.log('🔍 Axios error details:', {
-          hasResponse: !!error.response,
-          hasRequest: !!error.request,
-          config: error.config,
-          response: error.response ? {
-            status: error.response.status,
-            statusText: error.response.statusText,
-            headers: error.response.headers,
-            data: error.response.data
-          } : null
-        });
-
-        if (error.response) {
-          // Server responded with error status
-          const status = error.response.status;
-          const data = error.response.data;
-
-          console.log(`🚨 Server responded with ${status}:`, data);
-
-          if (status === 400) {
-            errorTitle = 'Invalid Request';
-            errorMessage = data?.error || data?.message || 'Please check your input and try again';
-          } else if (status === 401) {
-            errorTitle = 'Authentication Failed';
-            errorMessage = 'Please reconnect your wallet and try again';
-          } else if (status === 404) {
-            errorTitle = 'API Endpoint Not Found';
-            errorMessage = 'The server endpoint is not available. Please check if your server is running.';
-          } else if (status === 409) {
-            errorTitle = 'Already Registered';
-            errorMessage = 'This wallet or user is already registered';
-          } else if (status >= 500) {
-            errorTitle = 'Server Error';
-            errorMessage = 'Server is temporarily unavailable. Please try again later';
-          } else {
-            errorMessage = data?.error || data?.message || `Server error (${status})`;
-          }
-        } else if (error.request) {
-          // Network error
-          console.log('🌐 Network error:', error.request);
-          errorTitle = 'Connection Error';
-          errorMessage = 'Unable to connect to server. Please check your internet connection and ensure the server is running.';
-        } else {
-          // Request setup error
-          console.log('⚙️ Request setup error:', error.message);
-          errorMessage = error.message || 'Failed to make request';
-        }
-      } else if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      }
-
+      // Navigate to the welcome congratulations page
+      setTimeout(() => {
+        navigate('/welcome-congratulations');
+      }, 1500);
+      
+    } else {
+      // Handle unexpected response format
       toast({
-        title: errorTitle,
-        description: errorMessage,
+        title: 'Registration Failed',
+        description: response.data?.message || response.data?.error || 'Unexpected response from server',
         variant: 'destructive',
       });
-
-    } finally {
-      setIsValidating(false);
     }
-  };
+
+  } catch (error) {
+    console.error('❌ Registration error details:', {
+      error: error,
+      message: error.message,
+      name: error.name,
+      code: error.code,
+      isAxiosError: axios.isAxiosError(error)
+    });
+
+    let errorMessage = 'Network or server error';
+    let errorTitle = 'Registration Error';
+
+    // Handle axios errors with response
+    if (axios.isAxiosError(error)) {
+      console.log('🔍 Axios error details:', {
+        hasResponse: !!error.response,
+        hasRequest: !!error.request,
+        config: error.config,
+        response: error.response ? {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          headers: error.response.headers,
+          data: error.response.data
+        } : null
+      });
+
+      if (error.response) {
+        // Server responded with error status
+        const status = error.response.status;
+        const data = error.response.data;
+
+        console.log(`🚨 Server responded with ${status}:`, data);
+
+        if (status === 400) {
+          errorTitle = 'Invalid Request';
+          errorMessage = data?.error || data?.message || 'Please check your input and try again';
+        } else if (status === 401) {
+          errorTitle = 'Authentication Failed';
+          errorMessage = 'Please reconnect your wallet and try again';
+        } else if (status === 404) {
+          errorTitle = 'API Endpoint Not Found';
+          errorMessage = 'The server endpoint is not available. Please check if your server is running.';
+        } else if (status === 409) {
+          errorTitle = 'Already Registered';
+          errorMessage = data?.message || data?.error || 'This wallet or user is already registered';
+        } else if (status === 422) {
+          errorTitle = 'Invalid Referral Code';
+          errorMessage = data?.message || data?.error || 'The referral code is invalid or expired';
+        } else if (status >= 500) {
+          errorTitle = 'Server Error';
+          errorMessage = 'Server is temporarily unavailable. Please try again later';
+        } else {
+          errorMessage = data?.error || data?.message || `Server error (${status})`;
+        }
+      } else if (error.request) {
+        // Network error
+        console.log('🌐 Network error:', error.request);
+        errorTitle = 'Connection Error';
+        errorMessage = 'Unable to connect to server. Please check your internet connection and ensure the server is running.';
+      } else {
+        // Request setup error
+        console.log('⚙️ Request setup error:', error.message);
+        errorMessage = error.message || 'Failed to make request';
+      }
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    }
+
+    toast({
+      title: errorTitle,
+      description: errorMessage,
+      variant: 'destructive',
+    });
+
+  } finally {
+    setIsValidating(false);
+  }
+};
 
   // Test server connection
   const testServerConnection = async () => {

@@ -41,9 +41,10 @@ const Farm = () => {
   const [stakeSuccessData, setStakeSuccessData] = useState<StakeSuccessData | null>(null);
 
   const [usdcBalance, setUsdcBalance] = useState(0);
+  const [stakedAmount, setstakedAmount] = useState(0);
 
 
-  const stored = localStorage.getItem(address);
+  const stored = localStorage.getItem(user.id);
 
 
 
@@ -57,9 +58,10 @@ const Farm = () => {
         });
         return;
       }
-
       const localdata = JSON.parse(stored);
+
       setUsdcBalance(localdata.usdl_balance || 0)
+      setstakedAmount(localdata.staked_amount || 0)
     };
 
 
@@ -90,9 +92,6 @@ const Farm = () => {
 
     fetchReferralCode();
   }, [address, user?.id]);
-
-  const availableUSDL = "0";
-  const stakedAmount = "0";
 
   // Alternative approach: Use Privy's access token for authentication
   const createWalletAuth = async () => {
@@ -533,7 +532,7 @@ const Farm = () => {
 
           <div className="flex justify-between items-center">
             <span className="text-golden-light font-extralight opacity-60">Your Share</span>
-            <span className="text-foreground font-semibold">{((parseFloat(stakedAmount) / 28450) * 100).toFixed(2)}%</span>
+            <span className="text-foreground font-semibold">{(((stakedAmount) / 28450) * 100).toFixed(2)}%</span>
           </div>
         </div>
       </motion.div>

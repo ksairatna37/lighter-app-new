@@ -15,6 +15,7 @@ import copy from "@/assets/Copy.png";
 import refresh from "@/assets/refresh.png";
 import deposit from "@/assets/deposit.png";
 import { useWallet, useWalletStore } from '@/hooks/useWallet';
+import { usePrivy } from "@privy-io/react-auth";
 
 const Deposit = () => {
   const [depositAddress] = useState("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913");
@@ -25,10 +26,17 @@ const Deposit = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const { address, logout, refetchBalance } = useWallet();
+  const { logout, refetchBalance } = useWallet();
   const { balance, usdcBalance, usdValue, isLoading } = useWalletStore();
+  const { user } = usePrivy();
 
-    const formatAddress = (addr: string) => {
+  const storedData = localStorage.getItem(user.id);
+  const userdata = JSON.parse(storedData);
+  const address = userdata.wallet_address;
+
+
+
+  const formatAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
@@ -216,7 +224,7 @@ const Deposit = () => {
         <p className="text-golden-light text-md font-bold mb-2">Wallet Balance:</p>
         <div className="flex items-end gap-3 mb-4">
           <p className="text-4xl font-bold text-golden-light">${usdcBalance}</p>
-          <button  onClick={handleRefresh}
+          <button onClick={handleRefresh}
             disabled={isLoading} className="text-golden-light hover:opacity-80 mb-1 mr-6">
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
@@ -355,7 +363,7 @@ const Deposit = () => {
         </Button>
       </motion.div>
 
-      
+
 
       {/* Waiting Status - Matching card style */}
       {selectedAmount && (

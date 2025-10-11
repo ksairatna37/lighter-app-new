@@ -16,7 +16,7 @@ const WalletConnectSuccess = () => {
 
 
 
-  const { address } = useWallet();
+  const { address,user } = useWallet();
 
 
   if (!address) {
@@ -81,7 +81,7 @@ const WalletConnectSuccess = () => {
       return;
     }
     try {
-      const response = await axios.post('/api/check_user_exist', { wallet_address: address });
+      const response = await axios.post('/api/check_user_exist', { privy_id: user.id });
       if (response.data && response.data.exists === 'yes') {
         navigate('/dashboard');
       } else {

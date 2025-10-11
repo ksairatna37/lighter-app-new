@@ -59,21 +59,24 @@ const Trade = () => {
 
   const { user, authenticated, getAccessToken } = usePrivy(); // Use getAccessToken instead of signMessage
   const { balance, usdValue, isLoading } = useWalletStore();
-  const { address, logout, refetchBalance } = useWallet();
+  const { logout, refetchBalance } = useWallet();
 
 
   const [usdcBalance, setUsdcBalance] = useState(0);
   const [pointsBalance, setPointsBalance] = useState(0);
 
 
-  const stored = localStorage.getItem(address);
-
+  
+  const stored = localStorage.getItem(user.id);
   const [usersupabase, setUsersupabase] = useState("");
   const [expected_points, setexpected_points] = useState("");
   const [expected_usdl, setexpected_usdl] = useState("");
 
-  const buyPrice = Number(localStorage.getItem("buy price"));
-  const sellPrice = Number(localStorage.getItem("sell price"));
+  const localdata = JSON.parse(stored);
+
+  const buyPrice = localdata.buyPrice;
+  const sellPrice = localdata.sellPrice;
+  const address = localdata.wallet_address;
   const tradeFee = 0; // 2%
 
   useEffect(() => {
@@ -91,7 +94,7 @@ const Trade = () => {
       }
       const localdata = JSON.parse(stored);
       setUsdcBalance(localdata.usdl_balance || 0)
-      setPointsBalance(localdata.total_points || 0)
+      setPointsBalance(localdata.points_balance || 0)
     };
 
     fetchReferralCode();
