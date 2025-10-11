@@ -16,6 +16,7 @@ import refresh from "@/assets/refresh.png";
 import deposit from "@/assets/deposit.png";
 import { useWallet, useWalletStore } from '@/hooks/useWallet';
 import { usePrivy } from "@privy-io/react-auth";
+import axios from "axios";
 
 const Deposit = () => {
   const [depositAddress] = useState("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913");
@@ -25,15 +26,63 @@ const Deposit = () => {
   const [currentPromo, setCurrentPromo] = useState(0);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user, authenticated } = usePrivy();
 
-  const { logout, refetchBalance } = useWallet();
-  const { balance, usdcBalance, usdValue, isLoading } = useWalletStore();
-  const { user } = usePrivy();
+  const { balance, usdValue, isLoading } = useWalletStore();
 
   const storedData = localStorage.getItem(user.id);
   const userdata = JSON.parse(storedData);
   const address = userdata.wallet_address;
+  const userId = userdata?.id;
 
+  const [balanceLoading, setBalanceLoading] = useState<boolean>(false);
+  const [usdcBalance, setusdcBalance] = useState(0);
+
+
+
+  const fetchUserBalance = async () => {
+    if (user?.id) {
+      console.warn("User ID or Privy ID not found");
+      return;
+    }
+
+    setBalanceLoading(true);
+
+    try {
+
+      const response = await axios.post("/api/get_referal_code", {
+        id: userId,
+        privy_id: user.id
+      });
+
+      console.log("✅ Balance API Response:", response.data);
+
+      // NEW: Handle the updated API response structure
+      if (response.data && response.data.success !== false) {
+        const data = response.data;
+        setusdcBalance(parseFloat(data.usdl_balance) || 0);
+
+      } else {
+        throw new Error(response.data?.error || "Failed to fetch balance data");
+      }
+
+    } catch (error) {
+      console.error("❌ Error fetching balance:", error);
+      toast({
+        title: "Balance Error",
+        description: "Could not fetch balance data. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setBalanceLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (authenticated && user.id) {
+      fetchUserBalance();
+    }
+  }, [authenticated, user.id]);
 
 
   const formatAddress = (addr: string) => {
@@ -41,7 +90,7 @@ const Deposit = () => {
   };
 
   const handleRefresh = async () => {
-    await refetchBalance();
+    await fetchUserBalance();
     toast({
       title: "🎯 Refreshed!",
       description: "Balance updated",
@@ -91,10 +140,10 @@ const Deposit = () => {
   ];
 
   const amounts = [
-    { value: 100, points: 0.5 },
-    { value: 250, points: 0.7 },
-    { value: 500, points: 1 },
-    { value: 1000, points: 1.3 },
+    { value: 100, points: 24.9 },
+    { value: 250, points: 62.3 },
+    { value: 500, points: 124.7 },
+    { value: 1000, points: 249.4 },
   ];
 
   const handleCopyAddress = async () => {
@@ -223,7 +272,19 @@ const Deposit = () => {
       >
         <p className="text-golden-light text-md font-bold mb-2">Wallet Balance:</p>
         <div className="flex items-end gap-3 mb-4">
-          <p className="text-4xl font-bold text-golden-light">${usdcBalance}</p>
+          <p className="text-4xl font-bold text-golden-light">
+            {balanceLoading ? (
+              <motion.span
+                animate={{ opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+              >
+                Loading...
+              </motion.span>
+            ) : (
+              `$${usdcBalance.toFixed(2)}`
+            )}
+
+          </p>
           <button onClick={handleRefresh}
             disabled={isLoading} className="text-golden-light hover:opacity-80 mb-1 mr-6">
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />

@@ -317,17 +317,17 @@ const SellSuccessModal: React.FC<SellSuccessModalProps> = ({
               transition={{ delay: 1.6 }}
               className="px-6 pb-8 space-y-3"
             >
-              <Button
+              {/* <Button
                 onClick={handleSellAgain}
                 className="w-full h-12 bg-gradient-to-r from-[#7D5A02] to-[#A07715] hover:opacity-90 text-white font-semibold rounded-xl flex items-center justify-center gap-2"
               >
                 Sell Again
-              </Button>
+              </Button> */}
 
               <Button
                 onClick={handleGoToDashboard}
                 variant="outline"
-                className="w-full h-12 border-[#D4B679]/30 text-[#D4B679] hover:bg-[#D4B679] hover:text-black font-semibold rounded-xl flex items-center justify-center gap-2"
+                className="w-full h-12 bg-gradient-to-r from-[#7D5A02] to-[#A07715] hover:opacity-90 text-white font-semibold rounded-xl flex items-center justify-center gap-2"
               >
                 Go to Dashboard
                 <ArrowRight size={18} />

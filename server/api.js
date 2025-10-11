@@ -191,7 +191,7 @@ app.post('/api/stake', async (req, res) => {
     }
 
     console.log('🚀 Forwarding request to backend with duration_days:', {
-      url: `${BASE_URL}api/stake`,
+      url: `${BASE_URL}/api/stake`,
       headers: {
         ...backendHeaders,
         'Authorization': backendHeaders['Authorization'] ? 'Bearer [TOKEN]' : 'none'
@@ -203,7 +203,7 @@ app.post('/api/stake', async (req, res) => {
     });
 
     // Make request to actual backend API
-    const response = await fetch(`${BASE_URL}api/stake`, {
+    const response = await fetch(`${BASE_URL}/api/stake`, {
       method: 'POST',
       headers: backendHeaders,
       body: JSON.stringify(requestBody)
@@ -375,7 +375,7 @@ app.post('/api/unstake', async (req, res) => {
     }
 
     console.log('🚀 Forwarding request to backend with duration_days:', {
-      url: `${BASE_URL}api/unstake`,
+      url: `${BASE_URL}/api/unstake`,
       headers: {
         ...backendHeaders,
         'Authorization': backendHeaders['Authorization'] ? 'Bearer [TOKEN]' : 'none'
@@ -387,7 +387,7 @@ app.post('/api/unstake', async (req, res) => {
     });
 
     // Make request to actual backend API
-    const response = await fetch(`${BASE_URL}api/unstake`, {
+    const response = await fetch(`${BASE_URL}/api/unstake`, {
       method: 'POST',
       headers: backendHeaders,
       body: JSON.stringify(requestBody)
@@ -507,7 +507,7 @@ app.post('/api/points/buy', async (req, res) => {
     }
 
     console.log('🚀 Forwarding request to backend with duration_days:', {
-      url: `${BASE_URL}api/points/buy`,
+      url: `${BASE_URL}/api/points/buy`,
       headers: {
         ...backendHeaders,
         'Authorization': backendHeaders['Authorization'] ? 'Bearer [TOKEN]' : 'none'
@@ -519,7 +519,7 @@ app.post('/api/points/buy', async (req, res) => {
     });
 
     // Make request to actual backend API
-    const response = await fetch(`${BASE_URL}api/points/buy`, {
+    const response = await fetch(`${BASE_URL}/api/points/buy`, {
       method: 'POST',
       headers: backendHeaders,
       body: JSON.stringify(requestBody)
@@ -639,7 +639,7 @@ app.post('/api/points/sell', async (req, res) => {
     }
 
     console.log('🚀 Forwarding request to backend with duration_days:', {
-      url: `${BASE_URL}api/points/sell`,
+      url: `${BASE_URL}/api/points/sell`,
       headers: {
         ...backendHeaders,
         'Authorization': backendHeaders['Authorization'] ? 'Bearer [TOKEN]' : 'none'
@@ -651,7 +651,7 @@ app.post('/api/points/sell', async (req, res) => {
     });
 
     // Make request to actual backend API
-    const response = await fetch(`${BASE_URL}api/points/sell`, {
+    const response = await fetch(`${BASE_URL}/api/points/sell`, {
       method: 'POST',
       headers: backendHeaders,
       body: JSON.stringify(requestBody)

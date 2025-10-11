@@ -520,11 +520,11 @@ const Trade = () => {
         >
           <div className="flex justify-between items-center mb-4">
             <span className="text-golden-light font-extralight opacity-60">Available</span>
-            <span className="text-golden-light font-bold">{usdcBalance} USDL</span>
+            <span className="text-golden-light font-bold">{usdcBalance.toFixed(2)} USDL</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-golden-light font-extralight opacity-60">Total Points</span>
-            <span className="text-golden-light font-bold">{pointsBalance}</span>
+            <span className="text-golden-light font-bold">{pointsBalance.toFixed(2)}</span>
           </div>
         </motion.div>
 

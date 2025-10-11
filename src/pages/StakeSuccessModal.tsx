@@ -290,7 +290,7 @@ const StakeSuccessModal: React.FC<StakeSuccessModalProps> = ({
                 </div>
 
                 {/* Lock End Date */}
-                <div className="flex items-center justify-between bg-card rounded-lg p-3">
+                {/* <div className="flex items-center justify-between bg-card rounded-lg p-3">
                   <div className="flex items-center gap-2">
                     <Calendar size={16} className="text-gray-400" />
                     <span className="text-sm text-gray-400">Lock Until</span>
@@ -298,7 +298,7 @@ const StakeSuccessModal: React.FC<StakeSuccessModalProps> = ({
                   <span className="text-sm text-[#D4B679]">
                     {formatDate(data.lock_end_date)}
                   </span>
-                </div>
+                </div> */}
               </div>
             </motion.div>
 
@@ -309,17 +309,17 @@ const StakeSuccessModal: React.FC<StakeSuccessModalProps> = ({
               transition={{ delay: 1.6 }}
               className="px-6 pb-8 space-y-3"
             >
-              <Button
+              {/* <Button
                 onClick={handleStakeAgain}
                 className="w-full h-12 bg-gradient-to-r from-[#7D5A02] to-[#A07715] hover:opacity-90 text-white font-semibold rounded-xl flex items-center justify-center gap-2"
               >
                 Stake Again
-              </Button>
+              </Button> */}
 
               <Button
                 onClick={handleGoToDashboard}
                 variant="outline"
-                className="w-full h-12 border-[#D4B679]/30 text-[#D4B679] hover:bg-[#D4B679] hover:text-black font-semibold rounded-xl flex items-center justify-center gap-2"
+                className="w-full h-12 bg-gradient-to-r from-[#7D5A02] to-[#A07715] hover:opacity-90 text-white font-semibold rounded-xl flex items-center justify-center gap-2"
               >
                 Go to Dashboard
                 <ArrowRight size={18} />

@@ -33,7 +33,7 @@ const Farm = () => {
   const [isStaking, setIsStaking] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { address, logout, refetchBalance } = useWallet();
+  const {logout, refetchBalance } = useWallet();
   const { user, authenticated, getAccessToken } = usePrivy(); // Use getAccessToken instead of signMessage
 
   // Modal state
@@ -45,6 +45,8 @@ const Farm = () => {
 
 
   const stored = localStorage.getItem(user.id);
+  const localdata = JSON.parse(stored);
+  const address = localdata.wallet_address;
 
 
 
@@ -58,7 +60,6 @@ const Farm = () => {
         });
         return;
       }
-      const localdata = JSON.parse(stored);
 
       setUsdcBalance(localdata.usdl_balance || 0)
       setstakedAmount(localdata.staked_amount || 0)

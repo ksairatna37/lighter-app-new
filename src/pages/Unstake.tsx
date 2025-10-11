@@ -17,30 +17,32 @@ import UnstakeSuccessModal from './UnstakeSuccessModal';
 
 // Types for the unstake response
 interface UnstakeSuccessData {
-  transaction_id: string;
-  tx_hash: string;
-  unstaked_amount: string;
-  penalty_fee: string;
-  rewards_earned: string;
-  total_received: string;
-  remaining_staked: string;
-  new_usdl_balance: string;
-  timestamp: string;
+    transaction_id: string;
+    tx_hash: string;
+    unstaked_amount: string;
+    penalty_fee: string;
+    rewards_earned: string;
+    total_received: string;
+    remaining_staked: string;
+    new_usdl_balance: string;
+    timestamp: string;
 }
 
 const Unstake = () => {
     const [unstakeAmount, setUnstakeAmount] = useState("");
     const [isUnstaking, setIsUnstaking] = useState(false);
-    
+
     // Modal state
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [unstakeSuccessData, setUnstakeSuccessData] = useState<UnstakeSuccessData | null>(null);
-    
+
     const { toast } = useToast();
     const navigate = useNavigate();
-    const { address, logout, refetchBalance } = useWallet();
+    const { logout, refetchBalance } = useWallet();
     const { user, authenticated, getAccessToken } = usePrivy(); // Use getAccessToken instead of signMessage
     const stored = localStorage.getItem(user.id);
+    const localdata = JSON.parse(stored);
+    const address = localdata.wallet_address;
 
     const { balance, usdValue, isLoading } = useWalletStore();
     const [usersupabase, setUsersupabase] = useState("");
@@ -64,7 +66,6 @@ const Unstake = () => {
                     walletAddress: address
                 });
             }
-            const localdata = JSON.parse(stored);
             setUsdcBalance(localdata.usdl_balance || 0)
             setstakedAmount(localdata.staked_amount || 0)
         };
@@ -213,13 +214,13 @@ const Unstake = () => {
                 setShowSuccessModal(true);
                 setUnstakeAmount("");
                 refetchBalance?.();
-                
+
                 // Optional: Play success sound
                 if (window.Audio) {
                     try {
-                        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApFn+DyvmMcBS2FzvLZiDYIG2m+7+WiTAwO'); 
+                        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApFn+DyvmMcBS2FzvLZiDYIG2m+7+WiTAwO');
                         audio.volume = 0.3;
-                        audio.play().catch(() => {}); // Ignore errors
+                        audio.play().catch(() => { }); // Ignore errors
                     } catch (e) {
                         // Ignore audio errors
                     }
