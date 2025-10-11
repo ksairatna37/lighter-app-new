@@ -12,44 +12,24 @@ import referbox from "@/assets/referbox.png";
 import and from "@/assets/and.png";
 import share from "@/assets/Share.png";
 import { useWallet } from "@/hooks/useWallet";
+import { usePrivy } from "@privy-io/react-auth";
 
 const Referrals = () => {
   const [referralCode, setReferralCode] = useState("");
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { address, logout, refetchBalance } = useWallet();
+  const { user } = usePrivy();
 
   useEffect(() => {
-    if (!address) return;
+    if (!user.id) return;
 
     // Get referral from localStorage
-    const existingReferral = localStorage.getItem(address);
-    if (existingReferral) {
-        const stored = localStorage.getItem(address);
-        if (stored) {
-          const referralData = JSON.parse(stored);
-          setReferralCode(referralData.referral_code);
-          // Use code and userId as needed
-        }
-        return;
-      } else {
-      // If no code, fetch from API
-      fetch("/api/get_referal_code", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ wallet_address: address }),
-      })
-        .then((res) => res.json())
-        .then((result) => {
-          if (result.referral_code) {
-            setReferralCode(result.referral_code);
-          } else {
-            setReferralCode(""); // Optionally reset if not found
-          }
-        })
-        .catch(() => setReferralCode(""));
-    }
-  }, [address]);
+    const stored = localStorage.getItem(user.id);
+    const localdata = JSON.parse(stored);
+
+    setReferralCode(localdata.referral_code);
+
+  }, [user.id]);
 
   const handleCopyCode = async () => {
     try {

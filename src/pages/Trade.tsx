@@ -67,11 +67,11 @@ const Trade = () => {
 
 
   
-  const stored = localStorage.getItem(user.id);
   const [usersupabase, setUsersupabase] = useState("");
   const [expected_points, setexpected_points] = useState("");
   const [expected_usdl, setexpected_usdl] = useState("");
-
+  
+  const stored = localStorage.getItem(user.id);
   const localdata = JSON.parse(stored);
 
   const buyPrice = localdata.buyPrice;

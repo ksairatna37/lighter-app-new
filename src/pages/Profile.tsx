@@ -73,6 +73,8 @@ const Profile = () => {
   const navigate = useNavigate();
   const { address, logout, refetchBalance } = useWallet();
   const { ready, authenticated, user, exportWallet } = usePrivy();
+  const stored = localStorage.getItem(user.id);
+  const localdata = JSON.parse(stored);
 
   // Memoize computed values to prevent unnecessary re-calculations
   const isAuthenticated = useMemo(() => ready && authenticated, [ready, authenticated]);
@@ -88,8 +90,8 @@ const Profile = () => {
   }, [user?.linkedAccounts]);
 
   const formattedAddress = useMemo(() => {
-    if (!address) return '';
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+    if (!localdata.wallet_address) return '';
+    return `${localdata.wallet_address.slice(0, 6)}...${localdata.wallet_address.slice(-4)}`;
   }, [address]);
 
   // Memoize static data to prevent recreation on each render
@@ -239,7 +241,7 @@ const Profile = () => {
             </Button>
           </div>
           {user?.email?.address && (
-          <p className="text-md text-[#a07715] font-extralight">{user.email.address}</p>
+            <p className="text-md text-[#a07715] font-extralight">{user.email.address}</p>
           )}
         </motion.div>
 
