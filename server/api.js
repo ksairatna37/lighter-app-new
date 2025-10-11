@@ -727,8 +727,9 @@ app.post('/api/check_user_exist', async (req, res) => {
     console.log('✅ Response from account API:', respJson);
 
     // Check if user exists
-    if (respJson.success==="true") {
+    if (respJson.success===true) {
       // user exists
+      console.log("user found")
       return res.status(200).json({
         success: true,
         exists: 'yes',
@@ -736,6 +737,7 @@ app.post('/api/check_user_exist', async (req, res) => {
       });
     } else {
       // user not found
+      console.log("user not found")
       return res.status(200).json({
         success: true,
         exists: 'no',

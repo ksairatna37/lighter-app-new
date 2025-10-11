@@ -30,75 +30,127 @@ const Deposit = () => {
 
   const { balance, usdValue, isLoading } = useWalletStore();
 
-  const storedData = localStorage.getItem(user.id);
-  const userdata = JSON.parse(storedData);
-  const address = userdata.wallet_address;
+  // Get user data from localStorage
+  const storedData = localStorage.getItem(user?.id);
+  const userdata = storedData ? JSON.parse(storedData) : null;
+  const address = userdata?.wallet_address;
   const userId = userdata?.id;
 
+  // Loading state for balance fetch
   const [balanceLoading, setBalanceLoading] = useState<boolean>(false);
+  // USDC balance from backend
   const [usdcBalance, setusdcBalance] = useState(0);
 
-
-
+  // FIXED: Fetch user balance function
   const fetchUserBalance = async () => {
-    if (user?.id) {
-      console.warn("User ID or Privy ID not found");
+    // FIXED: Changed condition from !user?.id to user?.id
+    if (!user?.id) {
+      console.warn("User ID not found - cannot fetch balance");
       return;
     }
 
+    console.log("🚀 Starting fetchUserBalance for user:", user.id);
     setBalanceLoading(true);
-
+    
     try {
-
-      const response = await axios.post("/api/get_referal_code", {
-        id: userId,
-        privy_id: user.id
+      console.log("📡 Making API request to check_user_exist...");
+      const response = await axios.post('/api/check_user_exist', { 
+        privy_id: user.id 
       });
 
-      console.log("✅ Balance API Response:", response.data);
+      console.log("✅ API Response received:", response.data);
 
-      // NEW: Handle the updated API response structure
-      if (response.data && response.data.success !== false) {
+      // Handle the API response
+      if (response.data && response.data.exists === 'yes') {
         const data = response.data;
-        setusdcBalance(parseFloat(data.usdl_balance) || 0);
+        const newBalance = parseFloat(data.user.usdl_balance) || 0;
+        
+        console.log("💰 Setting new balance:", newBalance);
+        setusdcBalance(newBalance);
 
+      } else if (response.data && response.data.exists === 'no') {
+        console.warn("⚠️ User does not exist in backend");
+        toast({
+          title: "User Not Found",
+          description: "Please complete registration first.",
+          variant: "destructive",
+        });
       } else {
-        throw new Error(response.data?.error || "Failed to fetch balance data");
+        throw new Error(response.data?.error || "Unexpected response format");
       }
 
     } catch (error) {
       console.error("❌ Error fetching balance:", error);
-      toast({
-        title: "Balance Error",
-        description: "Could not fetch balance data. Please try again.",
-        variant: "destructive",
-      });
+      
+      // More specific error handling
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 404) {
+          toast({
+            title: "User Not Found", 
+            description: "Please complete registration first.",
+            variant: "destructive",
+          });
+        } else if (error.response?.status >= 500) {
+          toast({
+            title: "Server Error",
+            description: "Backend server is temporarily unavailable.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Balance Error",
+            description: error.response?.data?.error || "Could not fetch balance data.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Network Error",
+          description: "Please check your connection and try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
+      console.log("🏁 fetchUserBalance completed");
       setBalanceLoading(false);
     }
   };
 
+  // Load balance when component mounts
   useEffect(() => {
-    if (authenticated && user.id) {
+    console.log("🔄 useEffect triggered - authenticated:", authenticated, "user.id:", user?.id);
+    if (authenticated && user?.id) {
       fetchUserBalance();
     }
-  }, [authenticated, user.id]);
+  }, [authenticated, user?.id]);
 
-
+  // Format wallet address for display
   const formatAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
+  // FIXED: Handle refresh with better logging
   const handleRefresh = async () => {
-    await fetchUserBalance();
-    toast({
-      title: "🎯 Refreshed!",
-      description: "Balance updated",
-      variant: "default",
-    });
+    console.log("🔄 Refresh button clicked");
+    
+    try {
+      await fetchUserBalance();
+      toast({
+        title: "🎯 Refreshed!",
+        description: "Balance updated successfully",
+        variant: "default",
+      });
+    } catch (error) {
+      console.error("❌ Refresh failed:", error);
+      toast({
+        title: "Refresh Failed",
+        description: "Could not update balance",
+        variant: "destructive",
+      });
+    }
   };
 
-
+  // Timer countdown effect
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
@@ -114,6 +166,7 @@ const Deposit = () => {
     return () => clearInterval(promoTimer);
   }, []);
 
+  // Format time display
   const formatTime = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
@@ -121,6 +174,7 @@ const Deposit = () => {
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Promo carousel data
   const promos = [
     {
       title: "Make your first\ndeposit and earn",
@@ -139,6 +193,7 @@ const Deposit = () => {
     }
   ];
 
+  // Amount options with points
   const amounts = [
     { value: 100, points: 24.9 },
     { value: 250, points: 62.3 },
@@ -146,9 +201,10 @@ const Deposit = () => {
     { value: 1000, points: 249.4 },
   ];
 
+  // Copy deposit address to clipboard
   const handleCopyAddress = async () => {
     try {
-      await navigator.clipboard.writeText(address);
+      await navigator.clipboard.writeText(depositAddress);
       toast({
         title: "🎯 Address Copied!",
         description: "Deposit address copied to clipboard",
@@ -162,9 +218,10 @@ const Deposit = () => {
     }
   };
 
+  // Copy wallet address to clipboard
   const handleCopyWallet = async () => {
     try {
-      await navigator.clipboard.writeText(walletAddress);
+      await navigator.clipboard.writeText(address || walletAddress);
       toast({
         title: "🎯 Wallet Copied!",
         description: "Wallet address copied to clipboard",
@@ -283,11 +340,13 @@ const Deposit = () => {
             ) : (
               `$${usdcBalance.toFixed(2)}`
             )}
-
           </p>
-          <button onClick={handleRefresh}
-            disabled={isLoading} className="text-golden-light hover:opacity-80 mb-1 mr-6">
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          <button 
+            onClick={handleRefresh}
+            disabled={balanceLoading} 
+            className="text-golden-light hover:opacity-80 mb-1 mr-6 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${balanceLoading ? 'animate-spin' : ''}`} />
           </button>
         </div>
         <div className="flex items-center gap-2 text-muted-foreground mt-10">
@@ -423,8 +482,6 @@ const Deposit = () => {
           Deposit ${selectedAmount || 0}
         </Button>
       </motion.div>
-
-
 
       {/* Waiting Status - Matching card style */}
       {selectedAmount && (
