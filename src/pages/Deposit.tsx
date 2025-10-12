@@ -131,7 +131,7 @@ const Deposit = () => {
 
   // FIXED: Handle refresh with better logging
   const handleRefresh = async () => {
-    console.log("🔄 Refresh button clicked");
+    console.log("🔄 Refresh button clickedd");
     
     try {
       await fetchUserBalance();
