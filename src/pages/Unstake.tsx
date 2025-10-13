@@ -38,7 +38,6 @@ const Unstake = () => {
 
     const { toast } = useToast();
     const navigate = useNavigate();
-    const { logout, refetchBalance } = useWallet();
     const { user, authenticated, getAccessToken } = usePrivy(); // Use getAccessToken instead of signMessage
     const stored = localStorage.getItem(user.id);
     const localdata = JSON.parse(stored);
@@ -59,12 +58,7 @@ const Unstake = () => {
                 const referralData = JSON.parse(stored);
                 const code = referralData.referral_code;
                 setUsersupabase(referralData.id);
-                console.log('📝 Loaded from localStorage:', {
-                    supabaseId: referralData.id,
-                    referralCode: code,
-                    privyUserId: user?.id,
-                    walletAddress: address
-                });
+        
             }
             setUsdcBalance(localdata.usdl_balance || 0)
             setstakedAmount(localdata.staked_amount || 0)
@@ -73,29 +67,6 @@ const Unstake = () => {
         fetchReferralCode();
     }, [address, user?.id]);
 
-    // Alternative approach: Use Privy's access token for authentication
-    const createWalletAuth = async () => {
-        try {
-            console.log('🔐 Getting access token for authentication...');
-
-            // Get Privy access token
-            const accessToken = await getAccessToken();
-
-            if (!accessToken) {
-                throw new Error('Failed to get access token');
-            }
-
-            console.log('✅ Access token obtained successfully');
-
-            return {
-                accessToken,
-                timestamp: Math.floor(Date.now() / 1000)
-            };
-        } catch (error) {
-            console.error('❌ Failed to get access token:', error);
-            throw error;
-        }
-    };
 
     const calculateProjections = () => {
         const amount = parseFloat(unstakeAmount) || 0;
@@ -160,66 +131,38 @@ const Unstake = () => {
 
         try {
             // Step 1: Get authentication token (alternative to signing)
-            console.log('🔐 Getting authentication token...');
-            const authData = await createWalletAuth();
 
             // Step 2: Prepare request data
             const requestData = {
                 wallet_address: address,
                 amount: unstakeAmount,
                 force_unlock: "false", // Default value as specified
-                // Add auth token instead of signature
-                auth_token: authData.accessToken,
-                timestamp: authData.timestamp
+    
             };
 
             // Step 3: Prepare headers (use Supabase user ID as confirmed by your testing)
             const headers = {
                 'X-Privy-User-Id': usersupabase, // Supabase user ID
                 'X-Wallet-Address': address,
-                'Authorization': `Bearer ${authData.accessToken}`, // Add Authorization header
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
             };
 
-            console.log('🚀 Making unstake request with auth token:', {
-                url: '/api/unstake',
-                method: 'POST',
-                headers: {
-                    ...headers,
-                    'Authorization': 'Bearer [TOKEN]', // Don't log the actual token
-                    'auth_token': '[HIDDEN]'
-                },
-                data: {
-                    ...requestData,
-                    auth_token: '[HIDDEN]'
-                },
-                supabaseUserId: usersupabase,
-                privyUserId: user.id,
-                baseURL: axios.defaults.baseURL || window.location.origin,
-            });
+
 
             const response = await axios.post('/api/unstake', requestData, { headers });
-
-            console.log('✅ Unstake response:', {
-                status: response.status,
-                statusText: response.statusText,
-                headers: response.headers,
-                data: response.data,
-            });
 
             if (response.status === 200 && response.data?.success) {
                 // Store the success data and show modal instead of toast
                 setUnstakeSuccessData(response.data.data);
                 setShowSuccessModal(true);
                 setUnstakeAmount("");
-                refetchBalance?.();
 
                 // Optional: Play success sound
                 if (window.Audio) {
                     try {
                         const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApFn+DyvmMcBS2FzvLZiDYIG2m+7+WiTAwO');
-                        audio.volume = 0.3;
+                        audio.volume = 0.6;
                         audio.play().catch(() => { }); // Ignore errors
                     } catch (e) {
                         // Ignore audio errors
@@ -245,23 +188,12 @@ const Unstake = () => {
             let errorTitle = 'Unstake Error';
 
             if (axios.isAxiosError(error)) {
-                console.log('🔍 Axios error details:', {
-                    hasResponse: !!error.response,
-                    hasRequest: !!error.request,
-                    config: error.config,
-                    response: error.response ? {
-                        status: error.response.status,
-                        statusText: error.response.statusText,
-                        headers: error.response.headers,
-                        data: error.response.data
-                    } : null
-                });
+  
 
                 if (error.response) {
                     const status = error.response.status;
                     const data = error.response.data;
 
-                    console.log(`🚨 Server responded with ${status}:`, data);
 
                     if (status === 400) {
                         errorTitle = 'Invalid Request';
@@ -280,7 +212,6 @@ const Unstake = () => {
                     } else if (status === 401) {
                         errorTitle = 'Authentication Failed';
                         errorMessage = data?.error?.message || 'Wallet authentication failed. Please reconnect your wallet and try again.';
-                        console.log('🔐 Authentication error details:', data?.error);
                     } else if (status === 404) {
                         errorTitle = 'API Endpoint Not Found';
                         errorMessage = 'The API endpoint is not available. Please check if your server is running.';
@@ -361,11 +292,11 @@ const Unstake = () => {
                 >
                     <div className="flex justify-between items-center mb-4">
                         <span className="text-golden-light font-extralight opacity-60">Available to Unstake</span>
-                        <span className="text-golden-light font-bold">{stakedAmount} USDL</span>
+                        <span className="text-golden-light font-bold">{stakedAmount.toFixed(2)} USDL</span>
                     </div>
                     <div className="flex justify-between items-center">
                         <span className="text-golden-light font-extralight opacity-60">Current Balance</span>
-                        <span className="text-golden-light font-bold">{usdcBalance} USDL</span>
+                        <span className="text-golden-light font-bold">{usdcBalance.toFixed(2)} USDL</span>
                     </div>
                 </motion.div>
 
@@ -456,7 +387,7 @@ const Unstake = () => {
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3 }}
+                        transition={{ duration: 0.6 }}
                         className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-6 relative z-10"
                     >
                         <h3 className="text-golden-light text-lg font-semibold mb-4">Impact of Unstaking:</h3>
@@ -482,7 +413,7 @@ const Unstake = () => {
                     className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 relative z-10"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
+                    transition={{ delay: 0.6 }}
                 >
                     <h3 className="text-golden-light text-lg font-semibold mb-4">Pool Statistics:</h3>
                     <div className="space-y-3">

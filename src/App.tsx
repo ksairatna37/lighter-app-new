@@ -17,6 +17,7 @@ import Farm from "./pages/Farm";
 import Trade from "./pages/Trade";
 import Referrals from "./pages/Referrals";
 import Profile from "./pages/Profile";
+import History from "./pages/History";
 import NotFound from "./pages/NotFound";
 import { PrivyProvider, usePrivy } from '@privy-io/react-auth'
 import { PRIVY_APP_ID } from '@/config/constants';
@@ -120,7 +121,7 @@ const AuthHandler = ({ children }: { children: ReactNode }) => {
 
   // Define route categories
   const publicRoutes = ['/', '/onboarding/1', '/onboarding/2', '/onboarding/3', '/wallet-connect', '/wallet-connect/success', '/invite-only'];
-  const protectedRoutes = ['/welcome-congratulations', '/dashboard', '/deposit', '/farm', 'unstake', '/trade', '/referrals', '/profile', '/help', '/community'];
+  const protectedRoutes = ['/welcome-congratulations', '/dashboard', '/deposit', '/farm', 'unstake', '/trade', '/referrals', '/profile', '/help', '/community', '/history'];
 
   const isPublicRoute = (path: string) => publicRoutes.includes(path);
   const isProtectedRoute = (path: string) => protectedRoutes.some(route => path.startsWith(route));
@@ -203,7 +204,7 @@ const NavigationInterceptor = ({ children }: { children: ReactNode }) => {
   const [lastPublicRoute, setLastPublicRoute] = useState<string>('/');
 
   const publicRoutes = ['/', '/onboarding/1', '/onboarding/2', '/onboarding/3', '/wallet-connect', '/wallet-connect/success', '/invite-only'];
-  const protectedRoutes = ['/welcome-congratulations', '/dashboard', '/deposit', '/farm', 'unstake', '/trade', '/referrals', '/profile', '/help', '/community'];
+  const protectedRoutes = ['/welcome-congratulations', '/dashboard', '/deposit', '/farm', 'unstake', '/trade', '/referrals', '/profile', '/help', '/community', '/history'];
 
   const isPublicRoute = (path: string) => publicRoutes.includes(path);
   const isProtectedRoute = (path: string) => protectedRoutes.some(route => path.startsWith(route));
@@ -365,6 +366,14 @@ const AppRoutes = () => {
             element={
               <ProtectedRoute>
                 <Referrals />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/history"
+            element={
+              <ProtectedRoute>
+                <History />
               </ProtectedRoute>
             }
           />

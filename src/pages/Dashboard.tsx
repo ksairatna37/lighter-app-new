@@ -41,13 +41,22 @@ interface UserBalanceData {
   staked_amount: number;
   total_portfolio_value: number;
   points_usd_value: number;
-  wallet_address:string
+  wallet_address: string
+}
+
+interface PointsTransaction {
+  id: string;
+  amount: number;
+  created_at: string;
+  status: string;
+  tx_hash: string;
+  type: string;
+  user_id: string;
 }
 
 const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
   const navigate = useNavigate();
   const { user, authenticated } = usePrivy();
-  const { refetchBalance } = useWallet();
 
   // Get user data from localStorage
   const storedData = localStorage.getItem(user?.id);
@@ -70,7 +79,7 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
     staked_amount: 0,
     total_portfolio_value: 0,
     points_usd_value: 0,
-    wallet_address:''
+    wallet_address: ''
   });
 
   // Point price data from API
@@ -89,6 +98,49 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
     icon: <Minus className="w-3 h-3" />,
     color: 'text-gray-400'
   });
+
+  // Helper function to format transaction type
+  const formatTransactionType = (type: string): string => {
+    switch (type) {
+      case 'buy_points':
+        return 'Bought Points';
+      case 'sell_points':
+        return 'Sold Points';
+      case 'stake':
+        return 'Staked';
+      case 'unstake':
+        return 'Unstaked';
+      case 'referral_reward':
+        return 'Referral Reward';
+      default:
+        return type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
+  };
+
+  // Helper function to format time ago
+  const getTimeAgo = (dateString: string): string => {
+    const now = new Date();
+    const past = new Date(dateString);
+    const diffInSeconds = Math.floor((now.getTime() - past.getTime()) / 1000);
+
+    if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 30) return `${diffInDays}d ago`;
+    const diffInMonths = Math.floor(diffInDays / 30);
+    return `${diffInMonths}mo ago`;
+  };
+
+  // Helper function to determine if transaction is positive or negative
+  const getTransactionSign = (type: string): string => {
+    if (type === 'buy_points' || type === 'referral_reward' || type === 'unstake') {
+      return '+';
+    }
+    return '-';
+  };
 
   // Timer countdown effect
   useEffect(() => {
@@ -119,14 +171,12 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
     setBalanceLoading(true);
 
     try {
-      console.log("🚀 Fetching user balance...", { userId, privyId: user.id });
 
       const response = await axios.post("/api/get_referal_code", {
         id: userId,
         privy_id: user.id
       });
 
-      console.log("✅ Balance API Response:", response.data);
 
       // NEW: Handle the updated API response structure
       if (response.data && response.data.success !== false) {
@@ -154,13 +204,6 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
         };
         localStorage.setItem(user.id, JSON.stringify(updatedUserData));
 
-        console.log("💾 Balance data updated:", {
-          usdl: data.usdl_balance,
-          points: data.points_balance,
-          staked: data.staked_amount,
-          total: data.total_portfolio_value,
-          pointsUsd: data.points_usd_value
-        });
 
       } else {
         throw new Error(response.data?.error || "Failed to fetch balance data");
@@ -180,12 +223,10 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
 
   // Fetch point price data from API
   const fetchLighterPointPrice = async () => {
-    console.log("🚀 Fetching point price data...");
     setPriceLoading(true);
 
     try {
       const response = await axios.get("/api/points/price");
-      console.log("✅ Price API Response:", response.data);
 
       if (response.data && response.data.data) {
         const priceData = {
@@ -207,7 +248,6 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
 
         setLighterPointData(priceData);
         generateSuggestedAction(priceData);
-        console.log("📊 Price data updated:", priceData);
       } else {
         throw new Error("Invalid price data response");
       }
@@ -280,7 +320,7 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
     await Promise.all([
       fetchUserBalance(),
       fetchLighterPointPrice(),
-      refetchBalance?.()
+      fetchPointsHistory()
     ]);
   };
 
@@ -297,16 +337,58 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
       if (authenticated) {
         fetchLighterPointPrice();
       }
-    }, 30000);
+    }, 120000);
 
     return () => clearInterval(interval);
   }, [authenticated]);
 
   // Initial data fetch when component mounts
+  // Add this state near other states
+  const [pointsHistory, setPointsHistory] = useState<PointsTransaction[]>([]);
+  const [historyLoading, setHistoryLoading] = useState<boolean>(false);
+
+  // Update the fetchPointsHistory function
+  const fetchPointsHistory = async () => {
+    if (!userId) {
+      console.warn("User ID not found - cannot fetch points history");
+      return;
+    }
+
+    console.log("📜 Fetching points history for user:", userId);
+    setHistoryLoading(true);
+
+    try {
+      const limit = 10;
+      const response = await axios.get(`/api/points/history/${userId}?limit=${limit}`);
+
+      console.log("✅ Points history fetched successfully:");
+      console.log("📊 Transaction data:", response.data);
+
+      if (response.data?.data && Array.isArray(response.data.data)) {
+        console.log(`📝 Total transactions: ${response.data.data.length}`);
+        setPointsHistory(response.data.data);
+      }
+
+    } catch (error) {
+      console.error("❌ Error fetching points history:", error);
+
+      if (axios.isAxiosError(error)) {
+        console.error("Error details:", {
+          status: error.response?.status,
+          message: error.response?.data?.error || error.message
+        });
+      }
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  // Updated useEffect
   useEffect(() => {
     if (authenticated && userId) {
       fetchUserBalance();
       fetchLighterPointPrice();
+      fetchPointsHistory(); // 👈 Added new function call
     }
   }, [authenticated, userId]);
 
@@ -555,30 +637,67 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
       >
-        <h3 className="text-lg font-bold text-golden-light mb-4">Recent Activity:</h3>
-        <div className="space-y-4">
-          <div className="flex justify-between items-start">
-            <div className="font-extralight text-xs opacity-60">
-              <p className="text-sm text-foreground">@user123 joined</p>
-              <p className="text-xs text-muted-foreground">(2h ago)</p>
-            </div>
-            <span className="text-golden-light font-bold">+0.5 pt</span>
-          </div>
-          <div className="flex justify-between items-start">
-            <div className="font-extralight text-xs opacity-60">
-              <p className="text-sm text-foreground">@trader deposited</p>
-              <p className="text-xs text-muted-foreground">(10h ago)</p>
-            </div>
-            <span className="text-golden-light font-bold">+1.0 pt</span>
-          </div>
-          <div className="flex justify-between items-start">
-            <div className="font-extralight text-xs opacity-60">
-              <p className="text-sm text-foreground">@farmer staked</p>
-              <p className="text-xs text-muted-foreground">(2d ago)</p>
-            </div>
-            <span className="text-golden-light font-bold">+0.5 pt</span>
-          </div>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold text-golden-light">Recent Activity:</h3>
+          {historyLoading && (
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            >
+              <RefreshCw className="w-4 h-4 text-golden-light" />
+            </motion.div>
+          )}
         </div>
+
+        <div className="space-y-4">
+          {historyLoading ? (
+            <div className="text-center py-4">
+              <p className="text-sm text-muted-foreground">Loading transactions...</p>
+            </div>
+          ) : pointsHistory.length === 0 ? (
+            <div className="text-center py-4">
+              <p className="text-sm text-muted-foreground">No recent activity</p>
+            </div>
+          ) : (
+            pointsHistory.slice(0, 3).map((transaction) => (
+              <div key={transaction.id} className="flex justify-between items-start">
+                <div className="font-extralight text-xs opacity-60">
+                  <p className="text-sm text-foreground">
+                    {formatTransactionType(transaction.type)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {getTimeAgo(transaction.created_at)}
+                  </p>
+                  {transaction.tx_hash && (
+                    <p className="text-xs font-bold text-muted-foreground/50 mt-1">
+                      Tx: {transaction.tx_hash.slice(0, 6)}...{transaction.tx_hash.slice(-4)}
+                    </p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <span className={`font-bold ${getTransactionSign(transaction.type) === '+'
+                    ? 'text-green-400'
+                    : 'text-red-400'
+                    }`}>
+                     {getTransactionSign(transaction.type)} ${transaction.amount.toFixed(2)}
+                  </span>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {transaction.status === 'success' ? '✓' : '⋯'}
+                  </p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {pointsHistory.length > 5 && (
+          <button
+            onClick={() => navigate("/history")}
+            className="w-full mt-4 text-center text-sm text-golden-light hover:text-golden-light/80 transition-colors"
+          >
+            View all transactions →
+          </button>
+        )}
       </motion.div>
 
       <BottomNavigation />

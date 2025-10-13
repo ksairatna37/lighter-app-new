@@ -64,16 +64,13 @@ const fetchUserBalance = async () => {
     return;
   }
 
-  console.log("🚀 Starting fetchUserBalance for user:", user.id);
   setBalanceLoading(true);
 
   try {
-    console.log("📡 Making API request to check_user_exist...");
     const response = await axios.post('/api/check_user_exist', {
       privy_id: user.id
     });
 
-    console.log("✅ API Response received:", response.data);
 
     // Handle the API response
     if (response.data && response.data.exists === 'yes') {
@@ -86,11 +83,8 @@ const fetchUserBalance = async () => {
       // Now get on-chain balance using the userInfo directly (not userData state)
       try {
         const balance = await usdc.balanceOf(userInfo.wallet_address); // Use userInfo, not userData
-        console.log(ethers.formatUnits(balance, 6));
-        console.log("💰 On-chain USDC Balance:", parseFloat(ethers.formatUnits(balance, 6)));
         const newBalance = parseFloat(balance) || 0;
   
-        console.log("💰 Setting new balance:", newBalance);
         setusdcBalance(newBalance);
       } catch (blockchainError) {
         console.error("❌ Error fetching on-chain balance:", blockchainError);
@@ -141,7 +135,6 @@ const fetchUserBalance = async () => {
       });
     }
   } finally {
-    console.log("🏁 fetchUserBalance completed");
     setBalanceLoading(false);
   }
 };
@@ -159,7 +152,6 @@ const fetchUserBalance = async () => {
     }
 
     setDepositLoading(true);
-    console.log("🚀 Starting deposit process:", { userId: userData.id, amount: selectedAmount });
 
     try {
       const response = await axios.post('/api/deposit',
@@ -176,7 +168,6 @@ const fetchUserBalance = async () => {
         }
       );
 
-      console.log("✅ Deposit response:", response.data);
 
       if (response.data.success) {
         // Calculate points earned based on selected amount
@@ -242,7 +233,6 @@ const fetchUserBalance = async () => {
 
   // Load balance when component mounts
   useEffect(() => {
-    console.log("🔄 useEffect triggered - authenticated:", authenticated, "user.id:", user?.id);
     if (authenticated && user?.id) {
       fetchUserBalance();
     }
@@ -255,7 +245,6 @@ const fetchUserBalance = async () => {
 
   // Handle refresh with better logging
   const handleRefresh = async () => {
-    console.log("🔄 Refresh button clicked");
 
     try {
       await fetchUserBalance();

@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { BottomNavigation } from "@/components/layout/BottomNavigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Zap, ChevronUp, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -57,70 +57,40 @@ const Trade = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const { user, authenticated, getAccessToken } = usePrivy(); // Use getAccessToken instead of signMessage
+  const { user, authenticated, getAccessToken } = usePrivy();
   const { balance, usdValue, isLoading } = useWalletStore();
-  const { logout, refetchBalance } = useWallet();
-
 
   const [usdcBalance, setUsdcBalance] = useState(0);
   const [pointsBalance, setPointsBalance] = useState(0);
-
-
-  
   const [usersupabase, setUsersupabase] = useState("");
   const [expected_points, setexpected_points] = useState("");
   const [expected_usdl, setexpected_usdl] = useState("");
   
-  const stored = localStorage.getItem(user.id);
-  const localdata = JSON.parse(stored);
+  const stored = localStorage.getItem(user?.id);
+  const localdata = stored ? JSON.parse(stored) : null;
 
-  const buyPrice = localdata.buyPrice;
-  const sellPrice = localdata.sellPrice;
-  const address = localdata.wallet_address;
-  const tradeFee = 0; // 2%
+  const buyPrice = localdata?.buyPrice;
+  const sellPrice = localdata?.sellPrice;
+  const address = localdata?.wallet_address;
+  const tradeFee = 0; // 0%
 
   useEffect(() => {
     const fetchReferralCode = async () => {
       if (stored) {
         const referralData = JSON.parse(stored);
-        const code = referralData.referral_code;
         setUsersupabase(referralData.id);
-        console.log('📝 Loaded from localStorage:', {
-          supabaseId: referralData.id,
-          referralCode: code,
-          privyUserId: user?.id,
-          walletAddress: address
-        });
+        setUsdcBalance(referralData.usdl_balance || 0);
+        setPointsBalance(referralData.points_balance || 0);
       }
-      const localdata = JSON.parse(stored);
-      setUsdcBalance(localdata.usdl_balance || 0)
-      setPointsBalance(localdata.points_balance || 0)
     };
 
     fetchReferralCode();
   }, [address, user?.id]);
 
-  const createWalletAuth = async () => {
-    try {
-      console.log('🔐 Getting access token for authentication...');
-
-      // Get Privy access token
-      const accessToken = await getAccessToken();
-
-      if (!accessToken) {
-        throw new Error('Failed to get access token');
-      }
-
-      console.log('✅ Access token obtained successfully');
-
-      return {
-        accessToken,
-        timestamp: Math.floor(Date.now() / 1000)
-      };
-    } catch (error) {
-      console.error('❌ Failed to get access token:', error);
-      throw error;
-    }
+  // Switch mode and clear amount
+  const switchMode = (newMode: 'buy' | 'sell') => {
+    setActiveMode(newMode);
+    setAmount("");
   };
 
   const calculateTransaction = () => {
@@ -162,7 +132,6 @@ const Trade = () => {
     } else {
       setexpected_points("");
     }
-
   }, [amount, activeMode, buyPrice, sellPrice]);
 
   const calc = calculateTransaction();
@@ -203,72 +172,32 @@ const Trade = () => {
     setIsTrading(true);
 
     try {
-      // Step 1: Get authentication token (alternative to signing)
-      console.log('🔐 Getting authentication token...');
-      const authData = await createWalletAuth();
-
-      // Step 2: Prepare request data
       const requestData = {
         wallet_address: address,
         usdl_amount: amount,
         expected_points: expected_points,
-        max_slippage: 0, // Default value as specified
-        // Add auth token instead of signature
-        auth_token: authData.accessToken,
-        timestamp: authData.timestamp
       };
 
-      // Step 3: Prepare headers (use Supabase user ID as confirmed by your testing)
       const headers = {
-        'X-Privy-User-Id': usersupabase, // Supabase user ID
+        'X-Privy-User-Id': usersupabase,
         'X-Wallet-Address': address,
-        'Authorization': `Bearer ${authData.accessToken}`, // Add Authorization header
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       };
 
-      console.log('🚀 Making buy request with auth token:', {
-        url: '/api/points/buy',
-        method: 'POST',
-        headers: {
-          ...headers,
-          'Authorization': 'Bearer [TOKEN]', // Don't log the actual token
-          'auth_token': '[HIDDEN]'
-        },
-        data: {
-          ...requestData,
-          auth_token: '[HIDDEN]'
-        },
-        supabaseUserId: usersupabase,
-        privyUserId: user.id,
-        baseURL: axios.defaults.baseURL || window.location.origin,
-      });
-
       const response = await axios.post('/api/points/buy', requestData, { headers });
 
-      console.log('✅ Buy response:', {
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
-        data: response.data,
-      });
-
       if (response.status === 200 && response.data?.success) {
-        // Store the success data and show modal instead of toast
         setBuySuccessData(response.data.data);
         setShowBuySuccessModal(true);
         setAmount("");
-        refetchBalance?.();
 
-        // Optional: Play success sound
         if (window.Audio) {
           try {
             const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApFn+DyvmMcBS2FzvLZiDYIG2m+7+WiTAwO');
-            audio.volume = 0.3;
-            audio.play().catch(() => { }); // Ignore errors
-          } catch (e) {
-            // Ignore audio errors
-          }
+            audio.volume = 0.6;
+            audio.play().catch(() => {});
+          } catch (e) { /* empty */ }
         }
       } else {
         toast({
@@ -338,72 +267,32 @@ const Trade = () => {
     setIsTrading(true);
 
     try {
-      // Step 1: Get authentication token (alternative to signing)
-      console.log('🔐 Getting authentication token...');
-      const authData = await createWalletAuth();
-
-      // Step 2: Prepare request data
       const requestData = {
         wallet_address: address,
         points_amount: amount,
         expected_usdl: expected_usdl,
-        min_slippage: 0, // Default value as specified
-        // Add auth token instead of signature
-        auth_token: authData.accessToken,
-        timestamp: authData.timestamp
       };
 
-      // Step 3: Prepare headers (use Supabase user ID as confirmed by your testing)
       const headers = {
-        'X-Privy-User-Id': usersupabase, // Supabase user ID
+        'X-Privy-User-Id': usersupabase,
         'X-Wallet-Address': address,
-        'Authorization': `Bearer ${authData.accessToken}`, // Add Authorization header
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       };
 
-      console.log('🚀 Making sell request with auth token:', {
-        url: '/api/points/sell',
-        method: 'POST',
-        headers: {
-          ...headers,
-          'Authorization': 'Bearer [TOKEN]', // Don't log the actual token
-          'auth_token': '[HIDDEN]'
-        },
-        data: {
-          ...requestData,
-          auth_token: '[HIDDEN]'
-        },
-        supabaseUserId: usersupabase,
-        privyUserId: user.id,
-        baseURL: axios.defaults.baseURL || window.location.origin,
-      });
-
       const response = await axios.post('/api/points/sell', requestData, { headers });
 
-      console.log('✅ Sell response:', {
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
-        data: response.data,
-      });
-
       if (response.status === 200 && response.data?.success) {
-        // Store the success data and show modal instead of toast
         setSellSuccessData(response.data.data);
         setShowSellSuccessModal(true);
         setAmount("");
-        refetchBalance?.();
 
-        // Optional: Play success sound
         if (window.Audio) {
           try {
             const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApFn+DyvmMcBS2FzvLZiDYIG2m+7+WiTAwO');
-            audio.volume = 0.3;
-            audio.play().catch(() => { }); // Ignore errors
-          } catch (e) {
-            // Ignore audio errors
-          }
+            audio.volume = 0.6;
+            audio.play().catch(() => {});
+          } catch (e) { /* empty */ }
         }
       } else {
         toast({
@@ -493,8 +382,8 @@ const Trade = () => {
   return (
     <>
       <Container className="bg-background min-h-screen pb-24 px-4">
-        {/* Header - Matching Farm component style */}
-        <header className="flex items-center justify-between py-6">
+        {/* Header */}
+        <header className="flex items-center justify-between py-6 relative z-10">
           <Button
             variant="ghost"
             size="icon"
@@ -512,9 +401,54 @@ const Trade = () => {
           <img src={logo} alt="" className="h-8 w-auto" />
         </header>
 
-        {/* Balance Card - Matching Farm component style */}
+   
+
+        {/* Mode Toggle Tabs - Enhanced UX */}
         <motion.div
-          className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-4"
+          className="bg-card backdrop-blur-sm border border-border rounded-2xl p-2 mb-4 relative z-10 grid grid-cols-2 gap-2"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          <button
+            onClick={() => switchMode('buy')}
+            className={`relative py-3 px-4 rounded-xl font-bold text-sm transition-all ${
+              activeMode === 'buy'
+                ? 'bg-gradient-to-r from-[#7D5A02] to-[#A07715] text-white'
+                : 'bg-transparent text-golden-light/60 hover:text-golden-light'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <img 
+                src={buy} 
+                alt="" 
+                className={`h-5 w-auto ${activeMode === 'buy' ? 'invert' : 'invert opacity-60'}`}
+              />
+              Buy Points
+            </div>
+          </button>
+          <button
+            onClick={() => switchMode('sell')}
+            className={`relative py-3 px-4 rounded-xl font-bold text-sm transition-all ${
+              activeMode === 'sell'
+                ? 'bg-gradient-to-r from-[#7D5A02] to-[#A07715] text-white'
+                : 'bg-transparent text-golden-light/60 hover:text-golden-light'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <img 
+                src={sell} 
+                alt="" 
+                className={`h-5 w-auto ${activeMode === 'sell' ? 'invert' : 'invert opacity-60'}`}
+              />
+              Sell Points
+            </div>
+          </button>
+        </motion.div>
+
+             {/* Balance Card */}
+        <motion.div
+          className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-4 relative z-10"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -528,199 +462,194 @@ const Trade = () => {
           </div>
         </motion.div>
 
-        {/* Mode Toggle Buttons */}
-        <motion.div
-          className="grid grid-cols-2 gap-3 mb-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          <Button
-            onClick={() => { setActiveMode('buy'); setAmount("") }}
-            className={`h-14 text-lg font-semibold rounded-xm ${activeMode === 'buy'
-              ? 'bg-gradient-to-r from-[#7D5A02] to-[#A07715] text-white hover:opacity-90'
-              : 'bg-transparent border-2 border-golden-light/10 text-white/30 hover:bg-golden-light/10'
-              }`}
-          >
-            {activeMode === 'buy' ? <img src={buy} alt="" className="h-8 invert w-auto" /> : <img src={sell} alt="" className="h-8 invert opacity-30 w-auto" />}
-            BUY Points
-          </Button>
-          <Button
-            onClick={() => { setActiveMode('sell'); setAmount("") }}
-            className={`h-14 text-lg font-semibold rounded-md ${activeMode === 'sell'
-              ? 'bg-gradient-to-r from-[#7D5A02] to-[#A07715] text-white hover:opacity-90'
-              : 'bg-transparent border-2 border-golden-light/10 text-white/30 hover:bg-golden-light/10'
-              }`}
-          >
-            {activeMode === 'sell' ? <img src={sell} alt="" className="h-8 invert w-auto" /> : <img src={sell} alt="" className="h-8 invert opacity-30 w-auto" />}
-            SELL Points
-          </Button>
-        </motion.div>
-
-        {/* Transaction Card - Matching Farm component style */}
-        <motion.div
-          className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          {/* Header */}
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 bg-golden-light rounded-md flex items-center justify-center">
-              {activeMode === 'buy' ? <img src={buy} alt="" className="h-12 w-auto" /> : <img src={sell} alt="" className="h-12 w-auto" />}
-            </div>
-            <div>
-              <div className="font-semibold text-golden-light text-lg">
-                {activeMode === 'buy' ? 'BUY' : 'SELL'} Points
-              </div>
-              <div className="text-sm text-golden-light font-extralight opacity-60">
-                ${activeMode === 'buy' ? buyPrice : sellPrice}/point
-              </div>
-            </div>
-          </div>
-
-          {/* Amount Input Section - Matching Farm component style */}
-          <label className="text-golden-light text-lg font-semibold mb-4 block">
-            {activeMode === 'buy' ? 'Buy Amount:' : 'Sell Amount:'}
-          </label>
-
-          {/* Amount Input - Matching Farm component exact styling */}
-          <div className="border-2 text-golden-light rounded-sm px-4 py-2 mb-4 flex items-center justify-between">
-            <Input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.00"
-              className="bg-transparent border-none text-golden-light text-2xl font-bold focus-visible:ring-0 focus-visible:ring-offset-0 p-0 h-auto [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
-            <div className="flex items-center gap-2">
-              <div className="flex flex-col">
-                <button
-                  onClick={() => setAmount((parseFloat(amount || "0") + 1).toFixed(2))}
-                  className="text-golden-light hover:text-golden-light/70"
-                >
-                  <ChevronUp className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setAmount(Math.max(0, parseFloat(amount || "0") - 1).toFixed(2))}
-                  className="text-golden-light hover:text-golden-light/70"
-                >
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-              </div>
-              <span className="text-golden-light text-md font-semibold ml-2">
-                {activeMode === 'buy' ? 'USDL' : 'Points'}
-              </span>
-            </div>
-          </div>
-
-          {/* Percentage Buttons - Matching Farm component style */}
-          <div className="grid grid-cols-4 gap-3 mb-4">
-            <Button
-              onClick={() => setPercentage(25)}
-              className="bg-[#D4B679]/90 hover:bg-[#D4B679] text-background font-bold h-10"
-            >
-              25%
-            </Button>
-            <Button
-              onClick={() => setPercentage(50)}
-              className="bg-[#D4B679]/90 hover:bg-[#D4B679] text-background font-bold h-10"
-            >
-              50%
-            </Button>
-            <Button
-              onClick={() => setPercentage(75)}
-              className="bg-[#D4B679]/90 hover:bg-[#D4B679] text-background font-bold h-10"
-            >
-              75%
-            </Button>
-            <Button
-              onClick={() => setPercentage(100)}
-              className="bg-[#D4B679]/90 hover:bg-[#D4B679] text-background font-bold h-10"
-            >
-              MAX
-            </Button>
-          </div>
-
-          <div className="text-sm text-golden-light font-extralight opacity-60 mb-6">
-            Available: {activeMode === 'buy' ? `${usdcBalance} USDC` : `${pointsBalance} Points`}
-          </div>
-
-          {/* Transaction Details */}
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-golden-light font-extralight opacity-60">You'll receive</span>
-              <span className="text-foreground font-semibold">
-                ~{calc.receive} {calc.receiveLabel}
-              </span>
-            </div>
-
-            <div className="flex justify-between items-center pb-3">
-              <span className="text-golden-light font-extralight opacity-60">Trading fee</span>
-              <span className="text-foreground font-semibold">
-                ${calc.fee} USDL
-              </span>
-            </div>
-
-            <div className="border-t border-golden-light/20 pt-3">
-              <div className="flex justify-between items-center">
-                <span className="text-golden-light font-extralight opacity-60">
-                  {activeMode === 'buy' ? 'Total cost' : "You'll receive"}
-                </span>
-                <span className="text-foreground font-semibold">
-                  ${activeMode === 'buy' ? calc.total : calc.receive} USDL
-                </span>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Action Button - Matching Farm component style */}
-        <Button
-          onClick={handleTrade}
-          disabled={!amount || parseFloat(amount) <= 0 || isTrading || !authenticated || !address || !usersupabase}
-          className="w-full h-14 bg-gradient-to-r from-[#7D5A02] to-[#A07715] hover:opacity-90 text-background text-lg font-bold rounded-md text-white mb-6 disabled:opacity-50"
-        >
-          {isTrading ? (
-            <>
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                className="mr-2 inline-block"
-              >
-                <Zap className="w-5 h-5" />
-              </motion.div>
-              Processing...
-            </>
-          ) : (
-            <>
-              {activeMode === 'buy' ? <img src={buy} alt="" className="h-8 invert w-auto" /> : <img src={sell} alt="" className="h-8 invert w-auto" />}
-              {activeMode === 'buy' ? 'BUY' : 'SELL'} Now
-            </>
-          )}
-        </Button>
-
-        {/* Projections Card - Show transaction preview when amount is entered */}
-        {amount && parseFloat(amount) > 0 && (
+        {/* Animated Content Based on Mode */}
+        <AnimatePresence mode="wait">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            key={activeMode}
+            initial={{ opacity: 0, x: activeMode === 'buy' ? -20 : 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: activeMode === 'buy' ? 20 : -20 }}
             transition={{ duration: 0.3 }}
-            className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-6"
           >
-            <h3 className="text-golden-light text-lg font-semibold mb-4">Transaction Preview:</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-golden-light font-extralight opacity-60">Price per point</span>
-                <span className="text-foreground font-semibold">${activeMode === 'buy' ? buyPrice : sellPrice}</span>
+            {/* Transaction Card */}
+            <div className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-6 relative z-10">
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-golden-light rounded-md flex items-center justify-center">
+                  {activeMode === 'buy' ? (
+                    <img src={buy} alt="" className="h-12 w-auto" />
+                  ) : (
+                    <img src={sell} alt="" className="h-12 w-auto" />
+                  )}
+                </div>
+                <div>
+                  <div className="font-semibold text-golden-light text-lg">
+                    {activeMode === 'buy' ? 'BUY' : 'SELL'} Points
+                  </div>
+                  <div className="text-sm text-golden-light font-extralight opacity-60">
+                    ${activeMode === 'buy' ? buyPrice : sellPrice}/point
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-golden-light font-extralight opacity-60">You'll receive</span>
-                <span className="text-foreground font-semibold">~{calc.receive} {calc.receiveLabel}</span>
+
+              {/* Amount Input Section */}
+              <label className="text-golden-light text-lg font-semibold mb-4 block">
+                {activeMode === 'buy' ? 'Buy Amount:' : 'Sell Amount:'}
+              </label>
+
+              {/* Amount Input */}
+              <div className="border-2 text-golden-light rounded-sm px-4 py-2 mb-4 flex items-center justify-between">
+                <Input
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="bg-transparent border-none text-golden-light text-2xl font-bold focus-visible:ring-0 focus-visible:ring-offset-0 p-0 h-auto [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <div className="flex items-center gap-2">
+                  <div className="flex flex-col">
+                    <button
+                      onClick={() => setAmount((parseFloat(amount || "0") + 1).toFixed(2))}
+                      className="text-golden-light hover:text-golden-light/70"
+                    >
+                      <ChevronUp className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setAmount(Math.max(0, parseFloat(amount || "0") - 1).toFixed(2))}
+                      className="text-golden-light hover:text-golden-light/70"
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <span className="text-golden-light text-md font-semibold ml-2">
+                    {activeMode === 'buy' ? 'USDL' : 'Points'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Percentage Buttons */}
+              <div className="grid grid-cols-4 gap-3 mb-4">
+                <Button
+                  onClick={() => setPercentage(25)}
+                  className="bg-[#D4B679]/90 hover:bg-[#D4B679] text-background font-bold h-10"
+                >
+                  25%
+                </Button>
+                <Button
+                  onClick={() => setPercentage(50)}
+                  className="bg-[#D4B679]/90 hover:bg-[#D4B679] text-background font-bold h-10"
+                >
+                  50%
+                </Button>
+                <Button
+                  onClick={() => setPercentage(75)}
+                  className="bg-[#D4B679]/90 hover:bg-[#D4B679] text-background font-bold h-10"
+                >
+                  75%
+                </Button>
+                <Button
+                  onClick={() => setPercentage(100)}
+                  className="bg-[#D4B679]/90 hover:bg-[#D4B679] text-background font-bold h-10"
+                >
+                  MAX
+                </Button>
+              </div>
+
+              <div className="text-sm text-golden-light font-extralight opacity-60 mb-6">
+                Available: {activeMode === 'buy' ? `${usdcBalance.toFixed(2)} USDL` : `${pointsBalance.toFixed(2)} Points`}
+              </div>
+
+              {/* Transaction Details */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-golden-light font-extralight opacity-60">You'll receive</span>
+                  <span className="text-foreground font-semibold">
+                    ~{calc.receive} {calc.receiveLabel}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center pb-3">
+                  <span className="text-golden-light font-extralight opacity-60">Trading fee</span>
+                  <span className="text-foreground font-semibold">
+                    ${calc.fee} USDL
+                  </span>
+                </div>
+
+                <div className="border-t border-golden-light/20 pt-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-golden-light font-extralight opacity-60">
+                      {activeMode === 'buy' ? 'Total cost' : "You'll receive"}
+                    </span>
+                    <span className="text-foreground font-semibold">
+                      ${activeMode === 'buy' ? calc.total : calc.receive} USDL
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
+
+            {/* Action Button */}
+            <Button
+              onClick={handleTrade}
+              disabled={!amount || parseFloat(amount) <= 0 || isTrading || !authenticated || !address || !usersupabase}
+              className="w-full h-14 bg-gradient-to-r from-[#7D5A02] to-[#A07715] hover:opacity-90 text-white text-lg font-bold rounded-xl mb-6 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isTrading ? (
+                <>
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    className="inline-block"
+                  >
+                    <Zap className="w-5 h-5" />
+                  </motion.div>
+                  Processing...
+                </>
+              ) : (
+                <>
+                  {activeMode === 'buy' ? (
+                    <img src={buy} alt="" className="h-5 invert w-auto" />
+                  ) : (
+                    <img src={sell} alt="" className="h-5 invert w-auto" />
+                  )}
+                  {activeMode === 'buy' ? 'BUY' : 'SELL'} Now
+                </>
+              )}
+            </Button>
+
+            {/* Transaction Preview */}
+            {amount && parseFloat(amount) > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-6 relative z-10"
+              >
+                <h3 className="text-golden-light text-lg font-semibold mb-4">Transaction Preview:</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-golden-light font-extralight opacity-60">Price per point</span>
+                    <span className="text-foreground font-semibold">${activeMode === 'buy' ? buyPrice : sellPrice}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-golden-light font-extralight opacity-60">
+                      {activeMode === 'buy' ? 'Points to receive' : 'USDL to receive'}
+                    </span>
+                    <span className={`font-semibold ${activeMode === 'buy' ? 'text-green-400' : 'text-green-400'}`}>
+                      ~{calc.receive} {calc.receiveLabel}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-golden-light font-extralight opacity-60">Total amount</span>
+                    <span className="text-foreground font-semibold">
+                      {activeMode === 'buy' ? `${amount} USDL` : `${amount} Points`}
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+            )}
           </motion.div>
-        )}
+        </AnimatePresence>
 
         <BottomNavigation />
       </Container>
