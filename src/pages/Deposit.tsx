@@ -17,6 +17,7 @@ import deposit from "@/assets/deposit.png";
 import { useWallet, useWalletStore } from '@/hooks/useWallet';
 import { usePrivy } from "@privy-io/react-auth";
 import axios from "axios";
+import { ethers } from "ethers";
 
 const Deposit = () => {
   const [depositAddress] = useState("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913");
@@ -27,8 +28,18 @@ const Deposit = () => {
   const navigate = useNavigate();
   const { user, authenticated } = usePrivy();
   const { address } = useWallet(); // Get actual wallet address
-
-  const { balance, usdValue, isLoading } = useWalletStore();
+  const USDC_ABI = [
+    {
+      "constant": true,
+      "inputs": [{ "name": "_owner", "type": "address" }],
+      "name": "balanceOf",
+      "outputs": [{ "name": "balance", "type": "uint256" }],
+      "type": "function"
+    }
+  ];
+  const USDC_ADDRESS = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
+  const provider = new ethers.JsonRpcProvider("https://mainnet.infura.io/v3/3b60e88027de49bba4bd65af373611df"); // Or Alchemy/etc.
+  const usdc = new ethers.Contract(USDC_ADDRESS, USDC_ABI, provider);
 
   // Loading states
   const [balanceLoading, setBalanceLoading] = useState<boolean>(false);
@@ -54,11 +65,11 @@ const Deposit = () => {
 
     console.log("🚀 Starting fetchUserBalance for user:", user.id);
     setBalanceLoading(true);
-    
+
     try {
       console.log("📡 Making API request to check_user_exist...");
-      const response = await axios.post('/api/check_user_exist', { 
-        privy_id: user.id 
+      const response = await axios.post('/api/check_user_exist', {
+        privy_id: user.id
       });
 
       console.log("✅ API Response received:", response.data);
@@ -68,11 +79,18 @@ const Deposit = () => {
         const data = response.data;
         const userInfo = data.user;
         
+
         // Store user data in component state
         setUserData(userInfo);
-        
-        const newBalance = parseFloat(userInfo.usdl_balance) || 0;
-        
+
+        // Now get on-chain balance
+        const balance = await usdc.balanceOf(data.user.wallet_address);
+        console.log(userData.wallet_address);
+        console.log(ethers.formatUnits(balance, 6));
+        console.log("💰 On-chain USDC Balance:", parseFloat(ethers.formatUnits(balance, 6)));
+
+        const newBalance = parseFloat(balance) || 0;
+
         console.log("💰 Setting new balance:", newBalance);
         setusdcBalance(newBalance);
 
@@ -89,12 +107,12 @@ const Deposit = () => {
 
     } catch (error) {
       console.error("❌ Error fetching balance:", error);
-      
+
       // More specific error handling
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 404) {
           toast({
-            title: "User Not Found", 
+            title: "User Not Found",
             description: "Please complete registration first.",
             variant: "destructive",
           });
@@ -139,7 +157,7 @@ const Deposit = () => {
     console.log("🚀 Starting deposit process:", { userId: userData.id, amount: selectedAmount });
 
     try {
-      const response = await axios.post('/api/deposit', 
+      const response = await axios.post('/api/deposit',
         {
           id: userData.id,
           amount: selectedAmount
@@ -158,7 +176,7 @@ const Deposit = () => {
       if (response.data.success) {
         // Calculate points earned based on selected amount
         const pointsEarned = amounts.find(a => a.value === selectedAmount)?.points || 0;
-        
+
         toast({
           title: "🎉 Deposit Successful!",
           description: `You've earned ${pointsEarned} Lighter Points!`,
@@ -191,15 +209,15 @@ const Deposit = () => {
       } else {
         throw new Error(response.data.error || "Deposit failed");
       }
-      
+
     } catch (error) {
       console.error("❌ Deposit error:", error);
-      
+
       if (axios.isAxiosError(error)) {
-        const errorMessage = error.response?.data?.error || 
-                           error.response?.data?.message || 
-                           "Deposit failed. Please try again.";
-        
+        const errorMessage = error.response?.data?.error ||
+          error.response?.data?.message ||
+          "Deposit failed. Please try again.";
+
         toast({
           title: "Deposit Failed",
           description: errorMessage,
@@ -233,7 +251,7 @@ const Deposit = () => {
   // Handle refresh with better logging
   const handleRefresh = async () => {
     console.log("🔄 Refresh button clicked");
-    
+
     try {
       await fetchUserBalance();
       toast({
@@ -301,6 +319,19 @@ const Deposit = () => {
     { value: 500, points: 124.7 },
     { value: 1000, points: 249.4 },
   ];
+
+  // Auto scroll to bottom when amount is selected
+  const handleAmountSelect = (amount: number) => {
+    setSelectedAmount(amount);
+    
+    // Smooth scroll to bottom after a short delay to ensure state is updated
+    setTimeout(() => {
+      window.scrollTo({
+        top: document.documentElement.scrollHeight,
+        behavior: 'smooth'
+      });
+    }, 100);
+  };
 
   // Copy deposit address to clipboard
   const handleCopyAddress = async () => {
@@ -442,9 +473,9 @@ const Deposit = () => {
               `$${usdcBalance.toFixed(2)}`
             )}
           </p>
-          <button 
+          <button
             onClick={handleRefresh}
-            disabled={balanceLoading} 
+            disabled={balanceLoading}
             className="text-golden-light hover:opacity-80 mb-1 mr-6 disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${balanceLoading ? 'animate-spin' : ''}`} />
@@ -481,7 +512,7 @@ const Deposit = () => {
           {amounts.map((amount) => (
             <button
               key={amount.value}
-              onClick={() => setSelectedAmount(amount.value)}
+              onClick={() => handleAmountSelect(amount.value)}
               className={`bg-[#D4B679]/90 hover:bg-[#D4B679] rounded-xl p-4 flex flex-col items-center justify-center transition-all duration-200 ${selectedAmount === amount.value ? 'ring-2 ring-golden-light scale-105' : ''
                 }`}
             >
