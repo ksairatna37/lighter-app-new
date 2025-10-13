@@ -36,203 +36,57 @@ app.post('/api/deposit', async (req, res) => {
     const walletAddress = req.headers['x-wallet-address'];
     const authorizationHeader = req.headers['authorization'];
 
-    console.log('🚀 Deposit request received:', {
-      id,
-      amount,
-      privyUserId,
-      walletAddress: walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : 'none'
-    });
-
-    // Validate required fields
+    // Basic validation
     if (!id) {
-      return res.status(400).json({
-        success: false,
-        error: 'User ID is required',
-        code: 'MISSING_USER_ID'
-      });
+      return res.status(400).json({ error: 'User ID is required' });
     }
     if (!amount || amount <= 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Valid deposit amount is required',
-        code: 'INVALID_AMOUNT'
-      });
+      return res.status(400).json({ error: 'Valid deposit amount is required' });
     }
     if (!privyUserId) {
-      return res.status(400).json({
-        success: false,
-        error: 'Authentication required - X-Privy-User-Id header missing',
-        code: 'MISSING_AUTH'
-      });
+      return res.status(400).json({ error: 'X-Privy-User-Id header missing' });
     }
 
-    // Prepare request body for backend API
-    const requestBody = {
-      id,
-      amount: parseFloat(amount) // Ensure amount is a number
-    };
-
-    // Prepare headers for backend API
+    // Prepare request for backend
+    const requestBody = { id, amount: parseFloat(amount) };
     const backendHeaders = {
       'Accept': 'application/json',
       'X-Privy-User-Id': privyUserId,
       'Content-Type': 'application/json'
     };
+    if (walletAddress) backendHeaders['X-Wallet-Address'] = walletAddress;
+    if (authorizationHeader) backendHeaders['Authorization'] = authorizationHeader;
 
-    // Add optional headers if present
-    if (walletAddress) {
-      backendHeaders['X-Wallet-Address'] = walletAddress;
-    }
-    if (authorizationHeader) {
-      backendHeaders['Authorization'] = authorizationHeader;
-    }
-
-    console.log('🔄 Forwarding to backend deposit endpoint:', {
-      url: `${BASE_URL}/deposit`,
-      body: requestBody,
-      headers: {
-        ...backendHeaders,
-        'Authorization': backendHeaders['Authorization'] ? 'Bearer [HIDDEN]' : 'none'
-      }
-    });
-
-    // Make request to actual backend API
+    // Deposit API call to backend
     const response = await fetch(`${BASE_URL}/deposit`, {
       method: 'POST',
       headers: backendHeaders,
       body: JSON.stringify(requestBody)
     });
 
-    console.log('📡 Backend response status:', response.status, response.statusText);
-
-    // Handle response parsing
-    let responseData;
-    const contentType = response.headers.get('content-type');
-    
-    if (contentType && contentType.includes('application/json')) {
-      try {
-        responseData = await response.json();
-      } catch (parseError) {
-        console.error('❌ Failed to parse JSON response:', parseError);
-        return res.status(500).json({
-          success: false,
-          error: 'Invalid response format from backend',
-          code: 'PARSE_ERROR'
-        });
-      }
-    } else {
-      // Non-JSON response (likely HTML error page)
-      const textResponse = await response.text();
-      console.error('❌ Backend returned non-JSON response:', {
-        contentType,
-        status: response.status,
-        preview: textResponse.substring(0, 200)
-      });
-      
-      return res.status(500).json({
-        success: false,
-        error: 'Backend service unavailable',
-        code: 'SERVICE_UNAVAILABLE',
-        details: response.status === 404 ? 'Deposit endpoint not found' : 'Non-JSON response from backend'
-      });
+    // Try to parse backend response as JSON
+    let responseData = null;
+    try {
+      responseData = await response.json();
+    } catch {
+      return res.status(500).json({ error: 'Invalid response from backend' });
     }
 
-    console.log('✅ Backend response data:', responseData);
-
-    // Handle successful response
     if (response.ok) {
-      // Format the successful response for frontend
-      const formattedResponse = {
-        success: true,
-        message: responseData.message || 'Deposit completed successfully',
-        deposit_amount: amount,
-        points_earned: responseData.points_earned || 0,
-        points_value: responseData.points_value || 0,
-        new_balance: responseData.new_balance || 0,
-        transaction_hash: responseData.transaction_hash || `0x${Math.random().toString(16).substr(2, 16)}`,
-        order_id: responseData.order_id || `ORDER_${Date.now()}`,
-        timestamp: responseData.timestamp || new Date().toISOString(),
-        // Include any additional data from backend
-        ...responseData
-      };
-
-      console.log('🎉 Deposit successful:', formattedResponse);
-      res.status(200).json(formattedResponse);
-      
+      // Return backend's success payload as-is
+      return res.status(200).json(responseData);
     } else {
-      // Handle error responses from backend
-      console.error('❌ Backend returned error:', {
-        status: response.status,
-        data: responseData
+      // Always return a simple error object from backend error
+      return res.status(response.status).json({
+        error: responseData?.error || responseData?.message || 'Deposit failed'
       });
-
-      const errorResponse = {
-        success: false,
-        error: responseData.error || responseData.message || 'Deposit failed',
-        code: responseData.code || 'DEPOSIT_FAILED',
-        details: responseData.details || null,
-        status: response.status
-      };
-
-      // Provide user-friendly error messages based on status codes
-      if (response.status === 400) {
-        errorResponse.error = responseData.error || 'Invalid deposit request';
-      } else if (response.status === 401) {
-        errorResponse.error = 'Authentication failed';
-        errorResponse.code = 'AUTH_FAILED';
-      } else if (response.status === 403) {
-        errorResponse.error = 'Deposit not allowed';
-        errorResponse.code = 'FORBIDDEN';
-      } else if (response.status === 404) {
-        errorResponse.error = 'Deposit service not found';
-        errorResponse.code = 'SERVICE_NOT_FOUND';
-      } else if (response.status === 409) {
-        errorResponse.error = 'Duplicate deposit detected';
-        errorResponse.code = 'DUPLICATE_DEPOSIT';
-      } else if (response.status >= 500) {
-        errorResponse.error = 'Backend server error';
-        errorResponse.code = 'SERVER_ERROR';
-      }
-
-      res.status(response.status).json(errorResponse);
     }
-    
   } catch (error) {
-    console.error('💥 Error in /api/deposit:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    });
-
-    // Determine error type and provide appropriate response
-    let errorResponse = {
-      success: false,
-      error: 'Internal server error',
-      code: 'INTERNAL_ERROR',
-      message: error.message
-    };
-
-    if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      // Network connection error
-      errorResponse = {
-        success: false,
-        error: 'Unable to connect to backend service',
-        code: 'CONNECTION_ERROR',
-        details: 'Please check if the backend server is running'
-      };
-    } else if (error.name === 'AbortError') {
-      // Request timeout
-      errorResponse = {
-        success: false,
-        error: 'Request timeout',
-        code: 'TIMEOUT',
-        details: 'The deposit request took too long to process'
-      };
-    }
-
-    res.status(500).json(errorResponse);
+    // Always return error.message directly
+    return res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });
+
 
 
 // API Routes

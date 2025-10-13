@@ -3,7 +3,7 @@ import { Container } from "@/components/layout/Container";
 import { BottomNavigation } from "@/components/layout/BottomNavigation";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { ArrowLeft, Copy, Share2 } from "lucide-react";
+import { ArrowLeft, Copy, RefreshCw, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import logo from "@/assets/logo.png";
@@ -13,23 +13,48 @@ import and from "@/assets/and.png";
 import share from "@/assets/Share.png";
 import { useWallet } from "@/hooks/useWallet";
 import { usePrivy } from "@privy-io/react-auth";
+import axios from "axios";
 
 const Referrals = () => {
   const [referralCode, setReferralCode] = useState("");
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = usePrivy();
+  const [referral_count, setReferralCount] = useState(0);
+  const [referral_reward, setreferralreward] = useState(0);
+  const [balanceLoading, setBalanceLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    if (!user.id) return;
+    const fetchReferral = async () => {
+      if (!user?.id) return;
 
-    // Get referral from localStorage
-    const stored = localStorage.getItem(user.id);
-    const localdata = JSON.parse(stored);
+      // Get referral from localStorage
+      const stored = localStorage.getItem(user.id);
+      const localdata = stored ? JSON.parse(stored) : null;
 
-    setReferralCode(localdata.referral_code);
+      if (localdata?.referral_code) {
+        setReferralCode(localdata.referral_code);
+      }
+      setBalanceLoading(true);
 
-  }, [user.id]);
+      try {
+        const response = await axios.post('/api/check_user_exist', {
+          privy_id: user.id
+        });
+
+        if (response.data && response.data.exists === 'yes') {
+          setBalanceLoading(false);
+          setReferralCount(response.data.user.referral_count || 0);
+          setreferralreward(response.data.user.referral_rewards_earned || 0);
+
+        }
+      } catch (error) {
+        console.error("❌ Error fetching referral count:", error);
+      }
+    };
+
+    fetchReferral();
+  }, [user?.id]);
 
   const handleCopyCode = async () => {
     try {
@@ -90,11 +115,20 @@ const Referrals = () => {
       >
         <div className="flex justify-between items-center mb-4">
           <span className="text-golden-light font-extralight opacity-60">Points Earned</span>
-          <span className="text-golden-light font-bold">4.2</span>
+          <span className="text-golden-light font-bold">
+            {balanceLoading
+              ? <RefreshCw className="h-4 w-4 animate-spin" />
+              : `${(referral_reward)}`}
+          </span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-golden-light font-extralight opacity-60">Remaining Referrals</span>
-          <span className="text-golden-light font-bold">2/3</span>
+          <span className="text-golden-light font-extralight opacity-60">Referrals used </span>
+          <span className="text-golden-light font-bold">
+            {balanceLoading
+              ? <RefreshCw className="h-4 w-4 animate-spin" />
+              : `${(referral_count)}/3`}
+          </span>
+
         </div>
       </motion.div>
 
