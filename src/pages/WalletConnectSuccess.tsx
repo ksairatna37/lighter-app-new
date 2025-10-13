@@ -8,16 +8,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useWallet, useWalletStore } from '@/hooks/useWallet';
 
-
 const WalletConnectSuccess = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
 
-
-
-  const { address,user } = useWallet();
-
+  const { address, user } = useWallet();
 
   if (!address) {
     return (
@@ -57,8 +54,6 @@ const WalletConnectSuccess = () => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
- 
-
   const handleBack = () => {
     navigate("/wallet-connect");
   };
@@ -72,27 +67,126 @@ const WalletConnectSuccess = () => {
       });
       return;
     }
-    if (!address) {
+    
+    if (!address || !user?.id) {
       toast({
         title: "Wallet Required",
-        description: "Wallet address not found.",
+        description: "Wallet address or user ID not found.",
         variant: "destructive",
       });
       return;
     }
+
+    setIsChecking(true);
+    console.log("🚀 Checking user existence for:", user.id);
+
     try {
-      const response = await axios.post('/api/check_user_exist', { privy_id: user.id });
-      if (response.data && response.data.exists === 'yes') {
-        navigate('/dashboard');
-      } else {
-        navigate('/invite-only');
-      }
-    } catch (error) {
-      toast({
-        title: "Server Error",
-        description: "Could not check user existence. Please try again.",
-        variant: "destructive",
+      const response = await axios.post('/api/check_user_exist', { 
+        privy_id: user.id 
       });
+
+      console.log("✅ Check user response:", response.data);
+
+      if (response.data && response.data.exists === 'yes') {
+        // User exists - store user data in localStorage
+        const userData = response.data.user;
+        
+        console.log("💾 Storing user data in localStorage:", userData);
+        
+        // Create comprehensive user data object
+        const userDataToStore = {
+          // Core user info
+          id: userData.id,
+          wallet_address: userData.wallet_address,
+          referral_code: userData.referral_code,
+          
+          // // Balance information
+          // usdl_balance: userData.usdl_balance,
+          // points_balance: userData.points_balance,
+          // staked_amount: userData.staked_amount,
+          
+          // // Points and rewards
+          // bonus_points: userData.bonus_points,
+          // total_points: userData.total_points,
+          // referral_count: userData.referral_count,
+          // referral_rewards_earned: userData.referral_rewards_earned,
+          // total_referral_rewards: userData.total_referral_rewards,
+          
+          // // Referral info
+          // referrer_id: userData.referrer_id,
+          
+          // // Timestamps
+          // created_at: userData.created_at,
+          // updated_at: userData.updated_at,
+          
+          // // Calculated values
+          // total_portfolio_value: (
+          //   parseFloat(userData.usdl_balance) + 
+          //   parseFloat(userData.staked_amount) + 
+          //   (parseFloat(userData.points_balance) * 4.005) // Assuming current exchange rate
+          // ).toFixed(2),
+          
+          // // Store timestamp of when this data was cached
+          // last_fetched: new Date().toISOString()
+        };
+
+        // Store in localStorage using privy_id as key
+        localStorage.setItem(user.id, JSON.stringify(userDataToStore));
+        
+        console.log("✅ User data stored successfully:", {
+          key: user.id,
+          dataKeys: Object.keys(userDataToStore),
+        });
+
+        toast({
+          title: "🎉 Welcome Back!",
+          description: "Redirecting to your dashboard...",
+          duration: 2000,
+        });
+
+        // Navigate to dashboard after short delay
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1000);
+        
+      } else {
+        // User doesn't exist - redirect to invite-only registration
+        console.log("❌ User not found, redirecting to registration");
+        
+        toast({
+          title: "Registration Required",
+          description: "Please complete registration with an invite code.",
+          duration: 3000,
+        });
+
+        setTimeout(() => {
+          navigate('/invite-only');
+        }, 1500);
+      }
+      
+    } catch (error) {
+      console.error("❌ Error checking user existence:", error);
+      
+      // More specific error handling
+      if (axios.isAxiosError(error)) {
+        const errorMessage = error.response?.data?.error || 
+                           error.response?.data?.message || 
+                           "Could not verify your account.";
+        
+        toast({
+          title: "Verification Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Connection Error",
+          description: "Please check your connection and try again.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsChecking(false);
     }
   };
 
@@ -104,7 +198,6 @@ const WalletConnectSuccess = () => {
           <h1 className="text-xl font-bold text-golden-light">Wallet Connected</h1>
           <p className="text-sm text-golden-light/80">ready to farm</p>
         </div>
-
       </header>
 
       {/* Main Content */}
@@ -130,7 +223,7 @@ const WalletConnectSuccess = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.6 }}
         >
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center gap-3 mb-0">
             <div className="w-10 h-10 bg-golden-light/20 rounded-xl flex items-center justify-center">
               <Shield className="w-5 h-5 text-golden-light" />
             </div>
@@ -140,10 +233,8 @@ const WalletConnectSuccess = () => {
             </div>
           </div>
 
-
-
-          {/* Wallet Address */}
-          <div className="bg-background/50 rounded-xl p-4">
+          {/* Wallet Address Display */}
+          {/* <div className="bg-background/50 rounded-xl p-4">
             <div className="flex items-center justify-between mb-1">
               <p className="text-golden-light/60 text-sm">Wallet Address</p>
               <Button
@@ -156,11 +247,9 @@ const WalletConnectSuccess = () => {
               </Button>
             </div>
             <p className="text-golden-light font-mono text-sm font-semibold">{address && formatAddress(address)}</p>
-            <p className="text-golden-light font-thin text-sm">{import.meta.env.VITE_CHAIN_NAME} Network</p>
-          </div>
+            <p className="text-golden-light font-thin text-sm">Base Network</p>
+          </div> */}
         </motion.div>
-
-        {/* Security Features */}
 
         {/* Terms and Conditions */}
         <motion.div
@@ -198,16 +287,24 @@ const WalletConnectSuccess = () => {
         >
           <Button
             onClick={handleBack}
-            className="flex-1 h-14 bg-transparent border-2 border-golden-light/30 text-golden-light hover:bg-golden-light/10 rounded-xl text-lg font-semibold transition-all"
+            disabled={isChecking}
+            className="flex-1 h-14 bg-transparent border-2 border-golden-light/30 text-golden-light hover:bg-golden-light/10 rounded-xl text-lg font-semibold transition-all disabled:opacity-50"
           >
             Back
           </Button>
           <Button
             onClick={handleStartFarming}
-            disabled={!agreedToTerms}
+            disabled={!agreedToTerms || isChecking}
             className="flex-1 h-14 bg-gradient-to-r from-[#7D5A02] to-[#A07715] hover:opacity-90 text-background text-lg font-bold rounded-xl text-white disabled:opacity-50"
           >
-            Start Farming
+            {isChecking ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Checking...
+              </div>
+            ) : (
+              "Start Farming"
+            )}
           </Button>
         </motion.div>
 
@@ -227,9 +324,6 @@ const WalletConnectSuccess = () => {
           </p>
         </motion.div>
       </div>
-
-      {/* Optional decorative elements */}
-
     </div>
   );
 };

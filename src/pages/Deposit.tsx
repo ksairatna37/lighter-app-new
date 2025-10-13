@@ -20,30 +20,33 @@ import axios from "axios";
 
 const Deposit = () => {
   const [depositAddress] = useState("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913");
-  const [walletAddress] = useState("0x3e7...054f");
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState(3576); // 00:59:36 in seconds
   const [currentPromo, setCurrentPromo] = useState(0);
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user, authenticated } = usePrivy();
+  const { address } = useWallet(); // Get actual wallet address
 
   const { balance, usdValue, isLoading } = useWalletStore();
 
-  // Get user data from localStorage
-  const storedData = localStorage.getItem(user?.id);
-  const userdata = storedData ? JSON.parse(storedData) : null;
-  const address = userdata?.wallet_address;
-  const userId = userdata?.id;
-
-  // Loading state for balance fetch
+  // Loading states
   const [balanceLoading, setBalanceLoading] = useState<boolean>(false);
+  const [depositLoading, setDepositLoading] = useState<boolean>(false);
   // USDC balance from backend
   const [usdcBalance, setusdcBalance] = useState(0);
+  // User data from API response
+  type UserData = {
+    id: string;
+    wallet_address: string;
+    usdl_balance?: string | number;
+    // add other expected fields here as needed
+    [key: string]: unknown;
+  };
+  const [userData, setUserData] = useState<UserData | null>(null);
 
-  // FIXED: Fetch user balance function
+  // Fetch user balance function
   const fetchUserBalance = async () => {
-    // FIXED: Changed condition from !user?.id to user?.id
     if (!user?.id) {
       console.warn("User ID not found - cannot fetch balance");
       return;
@@ -63,7 +66,12 @@ const Deposit = () => {
       // Handle the API response
       if (response.data && response.data.exists === 'yes') {
         const data = response.data;
-        const newBalance = parseFloat(data.user.usdl_balance) || 0;
+        const userInfo = data.user;
+        
+        // Store user data in component state
+        setUserData(userInfo);
+        
+        const newBalance = parseFloat(userInfo.usdl_balance) || 0;
         
         console.log("💰 Setting new balance:", newBalance);
         setusdcBalance(newBalance);
@@ -116,6 +124,99 @@ const Deposit = () => {
     }
   };
 
+  // Handle deposit submission
+  const handleDeposit = async () => {
+    if (!selectedAmount || !userData?.id) {
+      toast({
+        title: "Missing Information",
+        description: "Please select an amount and ensure you're logged in.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setDepositLoading(true);
+    console.log("🚀 Starting deposit process:", { userId: userData.id, amount: selectedAmount });
+
+    try {
+      const response = await axios.post('/api/deposit', 
+        {
+          id: userData.id,
+          amount: selectedAmount
+        },
+        {
+          headers: {
+            'X-Privy-User-Id': user.id,
+            'X-Wallet-Address': userData.wallet_address,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      console.log("✅ Deposit response:", response.data);
+
+      if (response.data.success) {
+        // Calculate points earned based on selected amount
+        const pointsEarned = amounts.find(a => a.value === selectedAmount)?.points || 0;
+        
+        toast({
+          title: "🎉 Deposit Successful!",
+          description: `You've earned ${pointsEarned} Lighter Points!`,
+          duration: 3000,
+        });
+
+        // Navigate to success page with actual response data
+        navigate("/deposit/success", {
+          state: {
+            amount: selectedAmount,
+            pointsEarned: response.data.points_earned || pointsEarned,
+            pointsValue: response.data.points_value || (pointsEarned * 4.005).toFixed(2),
+            newBalance: response.data.new_balance || (usdcBalance + selectedAmount),
+            transactionHash: response.data.transaction_hash || `0x${Math.random().toString(16).substr(2, 8)}`,
+            orderId: response.data.order_id || `ORDER_${Date.now()}`,
+            date: new Date().toLocaleDateString('en-US', {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            })
+          }
+        });
+
+        // Refresh balance after successful deposit
+        setTimeout(() => {
+          fetchUserBalance();
+        }, 1000);
+
+      } else {
+        throw new Error(response.data.error || "Deposit failed");
+      }
+      
+    } catch (error) {
+      console.error("❌ Deposit error:", error);
+      
+      if (axios.isAxiosError(error)) {
+        const errorMessage = error.response?.data?.error || 
+                           error.response?.data?.message || 
+                           "Deposit failed. Please try again.";
+        
+        toast({
+          title: "Deposit Failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Deposit Error",
+          description: error.message || "Something went wrong. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setDepositLoading(false);
+    }
+  };
+
   // Load balance when component mounts
   useEffect(() => {
     console.log("🔄 useEffect triggered - authenticated:", authenticated, "user.id:", user?.id);
@@ -129,9 +230,9 @@ const Deposit = () => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
-  // FIXED: Handle refresh with better logging
+  // Handle refresh with better logging
   const handleRefresh = async () => {
-    console.log("🔄 Refresh button clickedd");
+    console.log("🔄 Refresh button clicked");
     
     try {
       await fetchUserBalance();
@@ -221,7 +322,7 @@ const Deposit = () => {
   // Copy wallet address to clipboard
   const handleCopyWallet = async () => {
     try {
-      await navigator.clipboard.writeText(address || walletAddress);
+      await navigator.clipboard.writeText(userData?.wallet_address || address || '');
       toast({
         title: "🎯 Wallet Copied!",
         description: "Wallet address copied to clipboard",
@@ -350,7 +451,9 @@ const Deposit = () => {
           </button>
         </div>
         <div className="flex items-center gap-2 text-muted-foreground mt-10">
-          <span className="text-sm font-extralight">{address && formatAddress(address)}</span>
+          <span className="text-sm font-extralight">
+            {userData?.wallet_address && formatAddress(userData.wallet_address)}
+          </span>
           <button className="text-golden-light" onClick={handleCopyWallet}>
             <img src={copy} alt="" className="h-4 w-auto" />
           </button>
@@ -445,7 +548,7 @@ const Deposit = () => {
         </p>
       </motion.div>
 
-      {/* Deposit Button - Matching Farm component style */}
+      {/* Deposit Button - Updated to call handleDeposit */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -453,56 +556,36 @@ const Deposit = () => {
         className="mb-6"
       >
         <Button
-          onClick={() => {
-            if (selectedAmount) {
-              // Calculate points earned based on selected amount
-              const pointsEarned = amounts.find(a => a.value === selectedAmount)?.points || 0;
-              navigate("/deposit/success", {
-                state: {
-                  amount: selectedAmount,
-                  pointsEarned: pointsEarned,
-                  pointsValue: (pointsEarned * 35).toFixed(2),
-                  newBalance: 1245.50 - selectedAmount,
-                  transactionHash: "SDFSDF5484SD",
-                  orderId: "SDFSDF5484SD",
-                  date: new Date().toLocaleDateString('en-US', {
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric'
-                  })
-                }
-              });
-            }
-          }}
+          onClick={handleDeposit}
           className="w-full h-14 bg-gradient-to-r from-[#7D5A02] to-[#A07715] hover:opacity-90 text-background text-lg font-bold rounded-md text-white disabled:opacity-50"
-          disabled={!selectedAmount}
+          disabled={!selectedAmount || depositLoading}
         >
-          <img src={deposit} alt="" className="h-6 mt-0.5 w-auto" style={{ filter: "brightness(0) invert(1)" }} />
-          Deposit ${selectedAmount || 0}
+          {depositLoading ? (
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full mr-2"
+            />
+          ) : (
+            <img src={deposit} alt="" className="h-6 mt-0.5 w-auto" style={{ filter: "brightness(0) invert(1)" }} />
+          )}
+          {depositLoading ? "Processing..." : `Deposit $${selectedAmount || 0}`}
         </Button>
       </motion.div>
 
-      {/* Waiting Status - Matching card style */}
-      {selectedAmount && (
+      {/* Waiting Status - Show only when amount selected but not loading */}
+      {selectedAmount && !depositLoading && (
         <motion.div
           className="bg-card backdrop-blur-sm border border-border rounded-2xl p-6 mb-6"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
         >
-          <h3 className="text-golden-light text-lg font-semibold mb-4 text-center">Waiting for deposit</h3>
+          <h3 className="text-golden-light text-lg font-semibold mb-4 text-center">Ready to deposit</h3>
           <p className="text-center text-golden-light font-extralight opacity-60 mb-4">
-            Send ${selectedAmount} USDC to complete your deposit
+            Click the deposit button to earn ${selectedAmount} worth of USDC and get {amounts.find(a => a.value === selectedAmount)?.points || 0} points
           </p>
-          <div className="flex justify-center">
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-              className="w-12 h-12 border-4 border-golden-light/20 border-t-golden-light rounded-full"
-            />
-          </div>
-          <div className="text-center mt-4">
+          <div className="text-center">
             <p className="text-sm text-foreground">
               You'll earn <span className="font-semibold text-golden-light">
                 {amounts.find(a => a.value === selectedAmount)?.points || 0} points

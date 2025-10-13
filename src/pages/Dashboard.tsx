@@ -41,6 +41,7 @@ interface UserBalanceData {
   staked_amount: number;
   total_portfolio_value: number;
   points_usd_value: number;
+  wallet_address:string
 }
 
 const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
@@ -68,7 +69,8 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
     points_balance: 0,
     staked_amount: 0,
     total_portfolio_value: 0,
-    points_usd_value: 0
+    points_usd_value: 0,
+    wallet_address:''
   });
 
   // Point price data from API
@@ -137,7 +139,8 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
           points_balance: parseFloat(data.points_balance) || 0,
           staked_amount: parseFloat(data.staked_amount) || 0,
           total_portfolio_value: parseFloat(data.total_portfolio_value) || 0,
-          points_usd_value: parseFloat(data.points_usd_value) || 0
+          points_usd_value: parseFloat(data.points_usd_value) || 0,
+          wallet_address: data.wallet_address || userdata.wallet_address
         });
 
         // Update localStorage with fresh data
