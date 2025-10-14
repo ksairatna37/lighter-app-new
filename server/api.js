@@ -522,7 +522,7 @@ app.post('/api/get_referal_code', async (req, res) => {
 
 
 // Add this route to your existing server/api.js
-app.get('/api/farcaster.json', (req, res) => {
+app.get('/.well-known/farcaster.json', (req, res) => {
   const manifest = {
     accountAssociation: {
       header: "", // Will be filled from basebuild.dev

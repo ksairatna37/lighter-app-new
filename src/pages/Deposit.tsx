@@ -84,6 +84,7 @@ const fetchUserBalance = async () => {
       try {
         const balance = await usdc.balanceOf(userInfo.wallet_address); // Use userInfo, not userData
         const newBalance = parseFloat(balance) || 0;
+        console.log(balance);
   
         setusdcBalance(newBalance);
       } catch (blockchainError) {
