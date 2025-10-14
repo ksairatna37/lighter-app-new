@@ -57,88 +57,109 @@ const Deposit = () => {
   const [userData, setUserData] = useState<UserData | null>(null);
 
   // Fetch user balance function
-// Fetch user balance function
-const fetchUserBalance = async () => {
-  if (!user?.id) {
-    console.warn("User ID not found - cannot fetch balance");
-    return;
-  }
-
-  setBalanceLoading(true);
-
-  try {
-    const response = await axios.post('/api/check_user_exist', {
-      privy_id: user.id
-    });
-
-
-    // Handle the API response
-    if (response.data && response.data.exists === 'yes') {
-      const data = response.data;
-      const userInfo = data.user;
-
-      // Store user data in component state
-      setUserData(userInfo);
-
-      // Now get on-chain balance using the userInfo directly (not userData state)
-      try {
-        const balance = await usdc.balanceOf(userInfo.wallet_address); // Use userInfo, not userData
-        const newBalance = parseFloat(balance) || 0;
-        console.log(balance);
-  
-        setusdcBalance(newBalance);
-      } catch (blockchainError) {
-        console.error("❌ Error fetching on-chain balance:", blockchainError);
-        // Continue with backend balance even if blockchain call fails
-      }
-
-
-    } else if (response.data && response.data.exists === 'no') {
-      console.warn("⚠️ User does not exist in backend");
-      toast({
-        title: "User Not Found",
-        description: "Please complete registration first.",
-        variant: "destructive",
-      });
-    } else {
-      throw new Error(response.data?.error || "Unexpected response format");
+  // Fetch user balance function
+  const fetchUserBalance = async () => {
+    if (!user?.id) {
+      console.warn("User ID not found - cannot fetch balance");
+      return;
     }
 
-  } catch (error) {
-    console.error("❌ Error fetching balance:", error);
+    setBalanceLoading(true);
 
-    // More specific error handling
-    if (axios.isAxiosError(error)) {
-      if (error.response?.status === 404) {
+    try {
+      const response = await axios.post('/api/check_user_exist', {
+        privy_id: user.id
+      });
+
+
+      // Handle the API response
+      if (response.data && response.data.exists === 'yes') {
+        const data = response.data;
+        const userInfo = data.user;
+
+        // Store user data in component state
+        setUserData(userInfo);
+
+        // Now get on-chain balance using the userInfo directly (not userData state)
+        try {
+          const balance = await usdc.balanceOf(userInfo.wallet_address); // Use userInfo, not userData
+          const newBalance = parseFloat(balance) || 0;
+          console.log("usdc balance of", userInfo.wallet_address, "->", balance);
+
+          // For Polygon
+          const USDC_POLYGON = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"; // USDC on Polygon
+          const polygonProvider = new ethers.JsonRpcProvider("https://polygon-rpc.com");
+          const usdcPolygon = new ethers.Contract(USDC_POLYGON, USDC_ABI, polygonProvider);
+          const balancePolygon = await usdcPolygon.balanceOf(userInfo.wallet_address);
+          console.log("Polygon USDC:", ethers.formatUnits(balancePolygon, 6));
+
+          // For Arbitrum
+          const USDC_ARBITRUM = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"; // Native USDC on Arbitrum
+          const arbitrumProvider = new ethers.JsonRpcProvider("https://arb1.arbitrum.io/rpc");
+          const usdcArbitrum = new ethers.Contract(USDC_ARBITRUM, USDC_ABI, arbitrumProvider);
+          const balanceArbitrum = await usdcArbitrum.balanceOf(userInfo.wallet_address);
+          console.log("Arbitrum USDC:", ethers.formatUnits(balanceArbitrum, 6));
+
+          // For Base
+          const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // USDC on Base
+          const baseProvider = new ethers.JsonRpcProvider("https://mainnet.base.org");
+          const usdcBase = new ethers.Contract(USDC_BASE, USDC_ABI, baseProvider);
+          const balanceBase = await usdcBase.balanceOf(userInfo.wallet_address);
+          console.log("Base USDC:", ethers.formatUnits(balanceBase, 6));
+
+          setusdcBalance(newBalance);
+        } catch (blockchainError) {
+          console.error("❌ Error fetching on-chain balance:", blockchainError);
+          // Continue with backend balance even if blockchain call fails
+        }
+
+
+      } else if (response.data && response.data.exists === 'no') {
+        console.warn("⚠️ User does not exist in backend");
         toast({
           title: "User Not Found",
           description: "Please complete registration first.",
           variant: "destructive",
         });
-      } else if (error.response?.status >= 500) {
-        toast({
-          title: "Server Error",
-          description: "Backend server is temporarily unavailable.",
-          variant: "destructive",
-        });
+      } else {
+        throw new Error(response.data?.error || "Unexpected response format");
+      }
+
+    } catch (error) {
+      console.error("❌ Error fetching balance:", error);
+
+      // More specific error handling
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 404) {
+          toast({
+            title: "User Not Found",
+            description: "Please complete registration first.",
+            variant: "destructive",
+          });
+        } else if (error.response?.status >= 500) {
+          toast({
+            title: "Server Error",
+            description: "Backend server is temporarily unavailable.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Balance Error",
+            description: error.response?.data?.error || "Could not fetch balance data.",
+            variant: "destructive",
+          });
+        }
       } else {
         toast({
-          title: "Balance Error",
-          description: error.response?.data?.error || "Could not fetch balance data.",
+          title: "Network Error",
+          description: "Please check your connection and try again.",
           variant: "destructive",
         });
       }
-    } else {
-      toast({
-        title: "Network Error",
-        description: "Please check your connection and try again.",
-        variant: "destructive",
-      });
+    } finally {
+      setBalanceLoading(false);
     }
-  } finally {
-    setBalanceLoading(false);
-  }
-};
+  };
 
 
   // Handle deposit submission
@@ -318,7 +339,7 @@ const fetchUserBalance = async () => {
   // Auto scroll to bottom when amount is selected
   const handleAmountSelect = (amount: number) => {
     setSelectedAmount(amount);
-    
+
     // Smooth scroll to bottom after a short delay to ensure state is updated
     setTimeout(() => {
       window.scrollTo({

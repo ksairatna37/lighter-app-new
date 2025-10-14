@@ -125,7 +125,7 @@ async function forwardToBackend(options) {
   }
 
   const response = await fetch(`${BASE_URL}${endpoint}`, fetchOptions);
-  
+
   // Handle non-JSON responses
   const contentType = response.headers.get('content-type');
   if (!contentType || !contentType.includes('application/json')) {
@@ -133,7 +133,7 @@ async function forwardToBackend(options) {
   }
 
   const data = await response.json();
-  
+
   return {
     status: response.status,
     ok: response.ok,
@@ -384,9 +384,9 @@ app.get('/api/points/history/:user_id', async (req, res) => {
 
     // Validation
     if (!user_id) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'User ID is required' 
+      return res.status(400).json({
+        success: false,
+        error: 'User ID is required'
       });
     }
 
@@ -525,9 +525,9 @@ app.post('/api/get_referal_code', async (req, res) => {
 app.get('/.well-known/farcaster.json', (req, res) => {
   const manifest = {
     accountAssociation: {
-      header: "", // Will be filled from basebuild.dev
-      payload: "",
-      signature: ""
+      "header": "eyJmaWQiOjEzODAxMDYsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHg1NGUxY2IxRTRFRTAwNDAyOEVhQTY1NEVlNGM5MWMwOUFjNDIzMTVCIn0",
+      "payload": "eyJkb21haW4iOiJhcHAtbGlnaHRlcmZhcm0taHhnY2NjZGtmOGM1aDlndy5jZW50cmFsaW5kaWEtMDEuYXp1cmV3ZWJzaXRlcy5uZXQifQ",
+      "signature": "MHgzYTI0Zjg0ZTQxZTIyZTJmZDMwYjA2NmE2MTdlNzU2MTc3YTQyMDc3NTgzZjkwZjA0YzI2Y2JmMmUxODM5N2YxNzk1MjEwZTI3Y2M5ZTA1ODliNzc2MWRkYzMzNjE4NTNhM2ExYTg1ZGEwY2IyYzM0NDJmZTk0NzMwNjNhODQ4YTFi"
     },
     baseBuilder: {
       // Only this address can update the manifest
@@ -552,7 +552,7 @@ app.get('/.well-known/farcaster.json', (req, res) => {
       ogImageUrl: `${process.env.APP_URL}/og-image.png`
     }
   }
-  
+
   res.json(manifest)
 })
 
