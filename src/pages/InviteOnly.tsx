@@ -65,24 +65,11 @@ const InviteOnly = () => {
       'Accept': 'application/json'
     };
 
-    console.log('🚀 Making registration request:', {
-      url: '/register_new_user',
-      method: 'POST',
-      headers: headers,
-      data: requestData,
-      baseURL: axios.defaults.baseURL || window.location.origin
-    });
 
     const response = await axios.post('/api/register_new_user', requestData, {
       headers: headers
     });
 
-    console.log('✅ Registration response:', {
-      status: response.status,
-      statusText: response.statusText,
-      headers: response.headers,
-      data: response.data
-    });
 
     // Updated: Check for successful response (now handles 201 status and new response format)
     if ((response.status === 200 || response.status === 201) && response.data?.success) {
@@ -101,18 +88,6 @@ const InviteOnly = () => {
         duration: 3000,
       });
 
-      // Log the detailed registration information
-      console.log('📊 Registration success details:', {
-        user: registeredUser,
-        referral_info: referral_info,
-        points_balance: registeredUser?.points_balance,
-        bonus_points: registeredUser?.bonus_points,
-        referral_code: registeredUser?.referral_code,
-        wallet_address: registeredUser?.wallet_address,
-        is_referred: referral_info?.is_referred,
-        max_referrals: referral_info?.max_referrals
-      });
-
       // Store user info in localStorage for quick access
       if (registeredUser) {
         const userInfo = {
@@ -123,7 +98,6 @@ const InviteOnly = () => {
         };
         
         localStorage.setItem(user.id, JSON.stringify(userInfo));
-        console.log('💾 User info stored in localStorage:', userInfo);
       }
 
       // Navigate to the welcome congratulations page
@@ -154,17 +128,7 @@ const InviteOnly = () => {
 
     // Handle axios errors with response
     if (axios.isAxiosError(error)) {
-      console.log('🔍 Axios error details:', {
-        hasResponse: !!error.response,
-        hasRequest: !!error.request,
-        config: error.config,
-        response: error.response ? {
-          status: error.response.status,
-          statusText: error.response.statusText,
-          headers: error.response.headers,
-          data: error.response.data
-        } : null
-      });
+      
 
       if (error.response) {
         // Server responded with error status
@@ -201,7 +165,6 @@ const InviteOnly = () => {
         errorMessage = 'Unable to connect to server. Please check your internet connection and ensure the server is running.';
       } else {
         // Request setup error
-        console.log('⚙️ Request setup error:', error.message);
         errorMessage = error.message || 'Failed to make request';
       }
     } else if (error instanceof Error) {
@@ -224,9 +187,7 @@ const InviteOnly = () => {
   // Test server connection
   const testServerConnection = async () => {
     try {
-      console.log('🧪 Testing server connection...');
       const response = await axios.get('/api/health');
-      console.log('✅ Server health check:', response.data);
       toast({
         title: "Server Connected",
         description: "Server is running and accessible",

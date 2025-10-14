@@ -129,13 +129,7 @@ const AuthHandler = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (ready && !hasHandledAuth) {
-      console.log('Auth state changed:', {
-        authenticated,
-        ready,
-        user: !!user,
-        currentPath: location.pathname,
-        previousPath: previousLocationRef.current
-      });
+
 
       if (authenticated && user) {
         // Get the intended destination from location state
@@ -143,11 +137,9 @@ const AuthHandler = ({ children }: { children: ReactNode }) => {
 
         // If user was trying to access a protected route, redirect there
         if (from && isProtectedRoute(from)) {
-          console.log('Redirecting to intended protected destination:', from);
           navigate(from, { replace: true });
         } else if (location.pathname === '/') {
           // If on splash page and authenticated, go to dashboard
-          console.log('Authenticated user on splash, redirecting to dashboard');
           navigate('/dashboard', { replace: true });
         }
         // If user is on a public route (like onboarding), let them stay there
@@ -159,16 +151,13 @@ const AuthHandler = ({ children }: { children: ReactNode }) => {
         const previousPath = previousLocationRef.current;
 
         if (isProtectedRoute(currentPath)) {
-          console.log('Unauthenticated user accessing protected route:', currentPath);
 
           // If the user was on a public page before trying to access protected route,
           // redirect them back to that public page instead of splash
           if (isPublicRoute(previousPath)) {
-            console.log('Redirecting back to previous public page:', previousPath);
             navigate(previousPath, { replace: true, state: { from: location } });
           } else {
             // If no previous public page, redirect to splash
-            console.log('Redirecting to splash page');
             navigate('/', { replace: true, state: { from: location } });
           }
         }
@@ -214,15 +203,13 @@ const NavigationInterceptor = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (isPublicRoute(location.pathname)) {
       setLastPublicRoute(location.pathname);
-      console.log('Updated last public route:', location.pathname);
     }
   }, [location.pathname]);
 
   // Handle navigation to protected routes when not authenticated
   useEffect(() => {
     if (ready && !authenticated && isProtectedRoute(location.pathname)) {
-      console.log('Intercepting navigation to protected route:', location.pathname);
-      console.log('Redirecting back to last public route:', lastPublicRoute);
+
 
       // Show a brief message (optional)
       // You could add a toast notification here

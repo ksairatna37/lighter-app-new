@@ -92,7 +92,6 @@ const Deposit = () => {
           const usdcBase = new ethers.Contract(USDC_BASE, USDC_ABI, baseProvider);
           const balanceBase = await usdcBase.balanceOf(userInfo.wallet_address);
           const formattedBalance = ethers.formatUnits(balanceBase, 6);
-          console.log("Base USDC:", formattedBalance);
 
           // Convert string to number before setting state
           setusdcBalance(parseFloat(formattedBalance));

@@ -80,20 +80,17 @@ const WalletConnectSuccess = () => {
     }
 
     setIsChecking(true);
-    console.log("🚀 Checking user existence for:", user.id);
 
     try {
       const response = await axios.post('/api/check_user_exist', { 
         privy_id: user.id 
       });
 
-      console.log("✅ Check user response:", response.data);
 
       if (response.data && response.data.exists === 'yes') {
         // User exists - store user data in localStorage
         const userData = response.data.user;
         
-        console.log("💾 Storing user data in localStorage:", userData);
         
         // Create comprehensive user data object
         const userDataToStore = {
@@ -134,11 +131,7 @@ const WalletConnectSuccess = () => {
 
         // Store in localStorage using privy_id as key
         localStorage.setItem(user.id, JSON.stringify(userDataToStore));
-        
-        console.log("✅ User data stored successfully:", {
-          key: user.id,
-          dataKeys: Object.keys(userDataToStore),
-        });
+
 
         toast({
           title: "🎉 Welcome Back!",
@@ -153,7 +146,6 @@ const WalletConnectSuccess = () => {
         
       } else {
         // User doesn't exist - redirect to invite-only registration
-        console.log("❌ User not found, redirecting to registration");
         
         toast({
           title: "Registration Required",
