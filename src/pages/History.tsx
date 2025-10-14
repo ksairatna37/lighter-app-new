@@ -100,8 +100,7 @@ const History = () => {
         axios.get(`/api/transactions/${userId}?limit=${limit}`)
       ]);
 
-      console.log("✅ Points history:", pointsResponse.data);
-      console.log("✅ General transactions:", transactionsResponse.data);
+
 
       const pointsData: UnifiedTransaction[] = (pointsResponse.data?.data || []).map((tx: PointsTransaction) => ({
         ...tx,
@@ -138,7 +137,6 @@ const History = () => {
       setFilteredHistory(withUniqueIds);
       calculateStats(withUniqueIds);
 
-      console.log(`📊 Total unified transactions: ${withUniqueIds.length}`);
 
     } catch (error) {
       console.error("❌ Error fetching transaction history:", error);
