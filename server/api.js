@@ -541,7 +541,7 @@ app.get('/api/farcaster.json', (req, res) => {
       screenshotUrls: [`${process.env.APP_URL}/screenshot.png`],
       iconUrl: `${process.env.APP_URL}/icon.png`,
       splashImageUrl: `${process.env.APP_URL}/splash.png`,
-      splashBackgroundColor: "#c1ab1aff",
+      splashBackgroundColor: "#ccb418ff",
       homeUrl: process.env.APP_URL,
       webhookUrl: `${process.env.APP_URL}/api/webhook`,
       primaryCategory: "finance",
