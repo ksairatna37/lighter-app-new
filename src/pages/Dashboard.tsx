@@ -2,7 +2,7 @@ import { Container } from "@/components/layout/Container";
 import { BottomNavigation } from "@/components/layout/BottomNavigation";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { TrendingUp, TrendingDown, ArrowRight, RefreshCw, Minus } from "lucide-react";
+import { TrendingUp, TrendingDown, ArrowRight, RefreshCw, Minus, Sparkles, Clock } from "lucide-react";
 import { useState, useEffect } from "react";
 import { usePrivy } from '@privy-io/react-auth';
 import logo from "@/assets/logo.png";
@@ -210,13 +210,113 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
     return () => clearInterval(interval);
   }, [mode]);
 
-  // Format time display (HH:MM:SS)
+  // Timer state
+  const [timeRemaining, setTimeRemaining] = useState(0);
+  const [timerEndTime, setTimerEndTime] = useState<number | null>(null);
+  const [isActiveBonus, setIsActiveBonus] = useState(true); // true = active bonus, false = waiting period
+  // ... (keep all your other state variables)
+
+  useEffect(() => {
+    const ACTIVE_BONUS_DURATION = 3600; // 1 hour active bonus
+    const WAITING_PERIOD_DURATION = 21600; // 6 hours waiting (21600 seconds)
+    const TIMER_KEY = 'limited_bonus_timer_end';
+    const TIMER_STATE_KEY = 'limited_bonus_is_active';
+
+    // Get or create timer end time
+    const storedEndTime = localStorage.getItem(TIMER_KEY);
+    const storedIsActive = localStorage.getItem(TIMER_STATE_KEY);
+
+    if (storedEndTime && storedIsActive !== null) {
+      const endTime = parseInt(storedEndTime);
+      const isActive = storedIsActive === 'true';
+      setTimerEndTime(endTime);
+      setIsActiveBonus(isActive);
+    } else {
+      // First time - start with active bonus
+      const endTime = Date.now() + (ACTIVE_BONUS_DURATION * 1000);
+      localStorage.setItem(TIMER_KEY, endTime.toString());
+      localStorage.setItem(TIMER_STATE_KEY, 'true');
+      setTimerEndTime(endTime);
+      setIsActiveBonus(true);
+    }
+  }, []);
+
+  // ✅ Update countdown every second with state transitions
+  useEffect(() => {
+    if (!timerEndTime) return;
+
+    const ACTIVE_BONUS_DURATION = 3600; // 1 hour
+    const WAITING_PERIOD_DURATION = 14400; // 4 hours
+
+    const updateTimer = () => {
+      const now = Date.now();
+      const remaining = Math.max(0, Math.floor((timerEndTime - now) / 1000));
+      setTimeRemaining(remaining);
+
+      // Timer expired - switch state
+      if (remaining === 0) {
+        if (isActiveBonus) {
+          // Active bonus ended → Start waiting period
+          const newEndTime = Date.now() + (WAITING_PERIOD_DURATION * 1000);
+          localStorage.setItem('limited_bonus_timer_end', newEndTime.toString());
+          localStorage.setItem('limited_bonus_is_active', 'false');
+          setTimerEndTime(newEndTime);
+          setIsActiveBonus(false);
+
+          // Optional: Show toast notification
+          toast({
+            title: "⏰ Bonus Ended",
+            description: "Next limited bonus starts in 6 hours!",
+            variant: "default",
+          });
+        } else {
+          // Waiting period ended → Start new active bonus
+          const newEndTime = Date.now() + (ACTIVE_BONUS_DURATION * 1000);
+          localStorage.setItem('limited_bonus_timer_end', newEndTime.toString());
+          localStorage.setItem('limited_bonus_is_active', 'true');
+          setTimerEndTime(newEndTime);
+          setIsActiveBonus(true);
+
+          // Optional: Show toast notification
+          toast({
+            title: "🎉 New Bonus Active!",
+            description: "Limited bonus is now available for 1 hour!",
+            variant: "default",
+          });
+        }
+      }
+    };
+
+    // Initial update
+    updateTimer();
+
+    // Update every second
+    const interval = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(interval);
+  }, [timerEndTime, isActiveBonus]);
+
+  // Format time display (HH:MM:SS or HH:MM for long durations)
   const formatTime = (s: number): string => {
-    const hrs = String(Math.floor(s / 3600)).padStart(2, "0");
-    const mins = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
-    const secs = String(s % 60).padStart(2, "0");
-    return `${hrs}:${mins}:${secs}`;
+    const hrs = Math.floor(s / 3600);
+    const mins = Math.floor((s % 3600) / 60);
+    const secs = s % 60;
+
+    // If more than 1 hour, show HH:MM format
+    if (hrs > 0) {
+      return `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+    }
+
+    // Less than 1 hour, show MM:SS format
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   };
+
+  // Check if timer is in last 10 minutes (for FOMO effect during active bonus)
+  const isTimerCritical = isActiveBonus && timeRemaining > 0 && timeRemaining <= 600; // 10 minutes
+
+  // Check if waiting period is ending soon (last 30 minutes)
+  const isWaitingEndingSoon = !isActiveBonus && timeRemaining > 0 && timeRemaining <= 1800; // 30 minutes
+
 
   // Fetch user balance data from backend
   const fetchUserBalance = async () => {
@@ -422,7 +522,7 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
         axios.get(`/api/transactions/${userId}?limit=${limit}`)
       ]);
 
-   
+
 
       const pointsData: UnifiedTransaction[] = (pointsResponse.data?.data || []).map((tx: PointsTransaction) => ({
         ...tx,
@@ -636,33 +736,116 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
 
       {/* Two Column Cards */}
       <div className="grid grid-cols-2 gap-4 mb-4">
-        {/* Limited Bonus */}
+        {/* Limited Bonus - Updated */}
+
         <motion.div
-          className="bg-card border border-border rounded-2xl p-4"
+          className={`bg-card border rounded-2xl p-4 transition-all ${isActiveBonus
+              ? 'border-golden-light/50 cursor-pointer hover:border-golden-light'
+              : 'border-border opacity-75'
+            }`}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
+          onClick={() => isActiveBonus && navigate("/farm")}
         >
           <div className="flex justify-between items-center mb-3">
-            <p className="text-xs text-muted-foreground">Limited Bonus</p>
-            <div className="flex items-center justify-center w-5 h-5 rounded-full bg-golden-light">
-              <ArrowRight className="w-4 h-4 text-black" />
-            </div>
+            <p className={`text-xs ${isActiveBonus ? 'text-golden-light' : 'text-muted-foreground'}`}>
+              {isActiveBonus ? '🔥 Limited Bonus' : '⏰ Next Bonus'}
+            </p>
+            {isActiveBonus && (
+              <div className="flex items-center justify-center w-5 h-5 rounded-full bg-golden-light">
+                <ArrowRight className="w-4 h-4 text-black" />
+              </div>
+            )}
           </div>
-          <p className="text-sm text-golden-light mb-1">Stake</p>
-          <p className="text-3xl font-bold text-golden-light mb-2">$100+</p>
-          <p className="text-xs text-muted-foreground mb-3">
-            Get <span className="text-golden-light font-bold">2</span> free points
-          </p>
-          <div className="flex items-center gap-1 text-golden-light">
-            <img src={timer} alt="" className="h-5 w-5" />
-            <span className="text-xs text-[#A07715] font-bold">{formatTime(seconds)}</span>
-          </div>
-        </motion.div>
 
+          {/* Active Bonus Display */}
+          {isActiveBonus ? (
+            <>
+              <p className="text-sm text-golden-light mb-1">Stake</p>
+              <p className="text-3xl font-bold text-golden-light mb-2">$100+</p>
+              <p className="text-xs text-muted-foreground mb-3">
+                Get <span className="text-golden-light font-bold">2</span> free points
+              </p>
+
+              {/* Active Timer */}
+              <div className="flex items-center gap-1">
+                <img src={timer} alt="" className="h-5 w-5" />
+                <motion.span
+                  className={`text-xs font-bold ${isTimerCritical ? 'text-red-400' : 'text-[#A07715]'
+                    }`}
+                  animate={isTimerCritical ? { scale: [1, 1.05, 1] } : {}}
+                  transition={{ duration: 1, repeat: Infinity }}
+                >
+                  {formatTime(timeRemaining)}
+                </motion.span>
+              </div>
+
+              {/* FOMO Message when critical */}
+              {isTimerCritical && (
+                <motion.p
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-xs text-red-400 font-bold mt-2 flex items-center gap-1"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  Last {Math.floor(timeRemaining / 60)} min! Don't miss out!
+                </motion.p>
+              )}
+            </>
+          ) : (
+            /* Waiting Period Display */
+            <>
+              <div className="flex items-center gap-2 mb-2">
+                <Clock className="w-8 h-8 text-golden-light/60" />
+                <div>
+                  <p className="text-sm text-golden-light/80 font-bold">Coming Soon</p>
+                  <p className="text-xs text-muted-foreground">Stay tuned!</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground mb-3">
+                New <span className="text-golden-light font-bold">limited bonus</span> starting in:
+              </p>
+
+              {/* Waiting Timer */}
+              <div className="flex items-center gap-1 mb-2">
+                <img src={timer} alt="" className="h-5 w-5 opacity-60" />
+                <motion.span
+                  className={`text-sm font-bold ${isWaitingEndingSoon ? 'text-yellow-400' : 'text-golden-light/60'
+                    }`}
+                  animate={isWaitingEndingSoon ? { scale: [1, 1.05, 1] } : {}}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                >
+                  {formatTime(timeRemaining)}
+                </motion.span>
+              </div>
+
+              {/* Encouraging messages */}
+              {isWaitingEndingSoon ? (
+                <motion.p
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-xs text-yellow-400 font-bold flex items-center gap-1"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  Almost ready! Prepare to stake!
+                </motion.p>
+              ) : timeRemaining > 18000 ? ( // More than 5 hours
+                <p className="text-xs text-muted-foreground/80">
+                  💡 Set a reminder to not miss it!
+                </p>
+              ) : (
+                <p className="text-xs text-golden-light/60">
+                  🔔 Get ready for the next bonus!
+                </p>
+              )}
+            </>
+          )}
+        </motion.div>
         {/* Exchange Rate Alert */}
         <motion.div
-          className="bg-card border border-border rounded-2xl p-4"
+          className="bg-card border border-border rounded-2xl p-4 cursor-pointer hover:border-golden-light/30 transition-all"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.35 }}
@@ -754,7 +937,7 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
             </div>
           ) : (
             unifiedHistory.slice(0, 5).map((transaction) => (
-             <div key={transaction.uniqueId || `${transaction.source}-${transaction.id}`} className="flex justify-between items-start">
+              <div key={transaction.uniqueId || `${transaction.source}-${transaction.id}`} className="flex justify-between items-start">
                 <div className="font-extralight text-xs opacity-60">
                   <div className="flex items-center gap-2">
                     <p className="text-sm text-foreground">

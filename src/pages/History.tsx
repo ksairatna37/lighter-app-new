@@ -425,8 +425,8 @@ const History = () => {
               key={option.value}
               onClick={() => applyFilter(option.value)}
               className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${selectedFilter === option.value
-                  ? 'bg-golden-light text-black'
-                  : 'bg-[#31302F] text-golden-light hover:bg-golden-light/20'
+                ? 'bg-golden-light text-black'
+                : 'bg-[#31302F] text-golden-light hover:bg-golden-light/20'
                 }`}
             >
               {option.label}
@@ -488,8 +488,8 @@ const History = () => {
                         </p>
                         {/* Source Badge */}
                         <span className={`text-xs px-2 py-0.5 rounded ${transaction.source === 'points'
-                            ? 'bg-golden-light/20 text-golden-light'
-                            : 'bg-blue-500/20 text-blue-400'
+                          ? 'bg-golden-light/20 text-golden-light'
+                          : 'bg-blue-500/20 text-blue-400'
                           }`}>
                           {transaction.source === 'points' ? 'Points' : 'Wallet'}
                         </span>
@@ -510,10 +510,10 @@ const History = () => {
                     </p>
                     <div className="flex items-center gap-1 mt-1">
                       <span className={`text-xs ${transaction.status === 'success' || transaction.status === 'completed'
-                          ? 'text-green-400'
-                          : transaction.status === 'pending'
-                            ? 'text-yellow-400'
-                            : 'text-red-400'
+                        ? 'text-green-400'
+                        : transaction.status === 'pending'
+                          ? 'text-yellow-400'
+                          : 'text-red-400'
                         }`}>
                         {transaction.status === 'success' || transaction.status === 'completed' ? '✓ Success' :
                           transaction.status === 'pending' ? '⋯ Pending' :
@@ -523,8 +523,8 @@ const History = () => {
                   </div>
                 </div>
 
-                {/* Transaction Hash */}
-                {transaction.tx_hash && (
+                {/* Transaction Hash - Only show for specific types */}
+                {transaction.tx_hash && ['deposit', 'withdraw'].includes(transaction.type) && (
                   <div className="bg-[#31302F] rounded-lg p-3 mt-3">
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
@@ -542,6 +542,7 @@ const History = () => {
                     </div>
                   </div>
                 )}
+
               </motion.div>
             );
           })
