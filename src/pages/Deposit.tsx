@@ -82,22 +82,7 @@ const Deposit = () => {
 
         // Now get on-chain balance using the userInfo directly (not userData state)
         try {
-          const balance = await usdc.balanceOf(userInfo.wallet_address);
-          console.log("Mainnet USDC:", ethers.formatUnits(balance, 6));
 
-          // For Polygon
-          const USDC_POLYGON = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174";
-          const polygonProvider = new ethers.JsonRpcProvider("https://polygon-rpc.com");
-          const usdcPolygon = new ethers.Contract(USDC_POLYGON, USDC_ABI, polygonProvider);
-          const balancePolygon = await usdcPolygon.balanceOf(userInfo.wallet_address);
-          console.log("Polygon USDC:", ethers.formatUnits(balancePolygon, 6));
-
-          // For Arbitrum
-          const USDC_ARBITRUM = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831";
-          const arbitrumProvider = new ethers.JsonRpcProvider("https://arb1.arbitrum.io/rpc");
-          const usdcArbitrum = new ethers.Contract(USDC_ARBITRUM, USDC_ABI, arbitrumProvider);
-          const balanceArbitrum = await usdcArbitrum.balanceOf(userInfo.wallet_address);
-          console.log("Arbitrum USDC:", ethers.formatUnits(balanceArbitrum, 6));
 
           // For Base
           const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
@@ -333,7 +318,7 @@ const Deposit = () => {
 
   // Amount options with points
   const amounts = [
-    { value: 100, points: 24.9 },
+    { value: 0.2, points: 24.9 },
     { value: 250, points: 62.3 },
     { value: 500, points: 124.7 },
     { value: 1000, points: 249.4 },

@@ -22,7 +22,9 @@ app.use(cors({
     'https://base.app',
     'app-lighterfarm-hxgcccdkf8c5h9gw.centralindia-01.azurewebsites.net',
     'http://localhost:3000',
-    'http://localhost:8080/'
+    'http://localhost:8080/',
+    "https://base.org",
+    "https://*.base.org"
   ]
 }))
 app.use(express.json());

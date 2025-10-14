@@ -16,29 +16,29 @@ const WalletConnectSuccess = () => {
 
   const { address, user } = useWallet();
 
-  if (!address) {
-    return (
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <div className="w-full max-w-md space-y-6 text-center animate-fade-in">
-          <div className="flex justify-center">
-            <div className="relative">
-              <div className="absolute inset-0 rounded-full bg-primary/20 blur-2xl animate-pulse-glow" />
-              <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent">
-                <Wallet className="h-12 w-12 text-white" />
-              </div>
-            </div>
-          </div>
-          <div className="space-y-3">
-            <h2 className="text-2xl font-bold">Creating Your Wallet</h2>
-            <p className="text-muted-foreground">
-              Please wait while we set up your secure wallet...
-            </p>
-          </div>
-          <div className="h-8 w-8 mx-auto animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        </div>
-      </div>
-    );
-  }
+  // if (!address) {
+  //   return (
+  //     <div className="flex min-h-screen items-center justify-center p-4">
+  //       <div className="w-full max-w-md space-y-6 text-center animate-fade-in">
+  //         <div className="flex justify-center">
+  //           <div className="relative">
+  //             <div className="absolute inset-0 rounded-full bg-primary/20 blur-2xl animate-pulse-glow" />
+  //             <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent">
+  //               <Wallet className="h-12 w-12 text-white" />
+  //             </div>
+  //           </div>
+  //         </div>
+  //         <div className="space-y-3">
+  //           <h2 className="text-2xl font-bold">Creating Your Wallet</h2>
+  //           <p className="text-muted-foreground">
+  //             Please wait while we set up your secure wallet...
+  //           </p>
+  //         </div>
+  //         <div className="h-8 w-8 mx-auto animate-spin rounded-full border-4 border-primary border-t-transparent" />
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   const copyAddress = () => {
     if (address) {
