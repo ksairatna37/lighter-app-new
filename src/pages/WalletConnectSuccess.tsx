@@ -7,14 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useWallet, useWalletStore } from '@/hooks/useWallet';
+import { usePrivy } from '@privy-io/react-auth';
 
 const WalletConnectSuccess = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
+  const {user} = usePrivy();
 
-  const { address, user } = useWallet();
+  const { address } = useWallet();
 
   // if (!address) {
   //   return (
@@ -68,7 +70,7 @@ const WalletConnectSuccess = () => {
       return;
     }
     
-    if (!address || !user?.id) {
+    if (!user?.id) {
       toast({
         title: "Wallet Required",
         description: "Wallet address or user ID not found.",
