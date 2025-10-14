@@ -1,10 +1,6 @@
 // Supabase client setup
-import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = "https://drepvbrhkxzwtwqncnyd.supabase.co";
-const SUPABASE_KEY = "sb_secret_PILUHtGebPRIeV_3Ojqd1w_yHUPlMkP";
 
-const supabase = SUPABASE_URL && SUPABASE_KEY ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 import express from 'express';
 import path from 'path';
@@ -21,7 +17,14 @@ const IS_PRODUCTION = NODE_ENV === 'production';
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://base.app',
+    'app-lighterfarm-hxgcccdkf8c5h9gw.centralindia-01.azurewebsites.net',
+    'http://localhost:3000',
+    'http://localhost:8080/'
+  ]
+}))
 app.use(express.json());
 
 // ============================================================================
@@ -516,6 +519,50 @@ app.post('/api/get_referal_code', async (req, res) => {
     return handleError(error, req, res);
   }
 });
+
+
+// Add this route to your existing server/api.js
+app.get('/api/farcaster.json', (req, res) => {
+  const manifest = {
+    accountAssociation: {
+      header: "", // Will be filled from basebuild.dev
+      payload: "",
+      signature: ""
+    },
+    baseBuilder: {
+      // Only this address can update the manifest
+      allowedAddresses: ["0xc252B5Ba8D936A5c8E6b32b38F69766299599d79"]
+    },
+    miniapp: {
+      version: "1",
+      name: "Lighter Farm",
+      subtitle: "DeFi Platform",
+      description: "Decentralized finance application for farming and trading",
+      screenshotUrls: [`${process.env.APP_URL}/screenshot.png`],
+      iconUrl: `${process.env.APP_URL}/icon.png`,
+      splashImageUrl: `${process.env.APP_URL}/splash.png`,
+      splashBackgroundColor: "#c1ab1aff",
+      homeUrl: process.env.APP_URL,
+      webhookUrl: `${process.env.APP_URL}/api/webhook`,
+      primaryCategory: "finance",
+      tags: ["defi", "farming", "trading", "blockchain"],
+      heroImageUrl: `${process.env.APP_URL}/hero.png`,
+      ogTitle: "Lighter Farm - DeFi Platform",
+      ogDescription: "Your decentralized finance companion",
+      ogImageUrl: `${process.env.APP_URL}/og-image.png`
+    }
+  }
+  
+  res.json(manifest)
+})
+
+// Optional: Add webhook endpoint for notifications
+app.post('/api/webhook', (req, res) => {
+  // Handle Base App webhooks
+  console.log('Webhook received:', req.body)
+  res.status(200).json({ success: true })
+})
+
 
 // Serve static files from React build
 app.use(express.static(path.join(__dirname, '../dist')));

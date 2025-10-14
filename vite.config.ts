@@ -25,6 +25,15 @@ export default defineConfig(({ mode }) => ({
       buffer: "buffer",
     },
   },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+      },
+    },
+  },
   define: {
     "process.env": {},
     global: "globalThis",

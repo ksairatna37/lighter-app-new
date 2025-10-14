@@ -24,6 +24,7 @@ import { PRIVY_APP_ID } from '@/config/constants';
 import { useWallet } from '@/hooks/useWallet';
 import { useEffect, useState, useRef } from 'react';
 import logo from "@/assets/logo.png";
+import { MiniAppReady } from './pages/MiniAppReady'
 
 const queryClient = new QueryClient();
 
@@ -411,6 +412,8 @@ const AppRoutes = () => {
 };
 
 const App = () => (
+  <>
+  <MiniAppReady />
   <PrivyProvider
     appId={PRIVY_APP_ID}
     config={{
@@ -437,6 +440,7 @@ const App = () => (
       </TooltipProvider>
     </QueryClientProvider>
   </PrivyProvider>
+  </>
 );
 
 export default App;
