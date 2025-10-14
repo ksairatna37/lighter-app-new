@@ -2,7 +2,7 @@ import { Container } from "@/components/layout/Container";
 import { BottomNavigation } from "@/components/layout/BottomNavigation";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, RefreshCw, TrendingUp, TrendingDown, ExternalLink, Filter, Calendar ,FileText, Diff} from "lucide-react";
+import { ArrowLeft, RefreshCw, TrendingUp, TrendingDown, ExternalLink, Filter, Calendar, FileText, Diff } from "lucide-react";
 import { useState, useEffect } from "react";
 import { usePrivy } from '@privy-io/react-auth';
 import axios from "axios";
@@ -21,10 +21,38 @@ interface PointsTransaction {
   user_id: string;
 }
 
+// Interface for general transaction data
+interface GeneralTransaction {
+  id: string;
+  user_id: string;
+  type: string;
+  tx_hash: string;
+  status: string;
+  amount: number;
+  created_at: string;
+}
+
+// Unified interface
+interface UnifiedTransaction {
+  id: string;
+  amount: number;
+  created_at: string;
+  status: string;
+  tx_hash: string;
+  type: string;
+  user_id: string;
+  source: 'points' | 'general';
+  uniqueId: string;
+}
+
 // Interface for transaction statistics
 interface TransactionStats {
   totalBought: number;
   totalSold: number;
+  totalDeposited: number;
+  totalWithdrawn: number;
+  totalStaked: number;
+  totalUnstaked: number;
   totalTransactions: number;
   netChange: number;
 }
@@ -39,39 +67,81 @@ const History = () => {
   const userId = userdata?.id;
 
   // State management
-  const [pointsHistory, setPointsHistory] = useState<PointsTransaction[]>([]);
-  const [filteredHistory, setFilteredHistory] = useState<PointsTransaction[]>([]);
+  const [unifiedHistory, setUnifiedHistory] = useState<UnifiedTransaction[]>([]);
+  const [filteredHistory, setFilteredHistory] = useState<UnifiedTransaction[]>([]);
   const [historyLoading, setHistoryLoading] = useState<boolean>(false);
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
   const [stats, setStats] = useState<TransactionStats>({
     totalBought: 0,
     totalSold: 0,
+    totalDeposited: 0,
+    totalWithdrawn: 0,
+    totalStaked: 0,
+    totalUnstaked: 0,
     totalTransactions: 0,
     netChange: 0
   });
 
-  // Fetch transaction history
-  const fetchPointsHistory = async () => {
+  // Fetch all transaction history (unified)
+  const fetchAllTransactionHistory = async () => {
     if (!userId) {
-      console.warn("User ID not found - cannot fetch points history");
+      console.warn("User ID not found - cannot fetch transaction history");
       return;
     }
 
     setHistoryLoading(true);
-    
+
     try {
-      const limit = 100; // Fetch more for history page
-      const response = await axios.get(`/api/points/history/${userId}?limit=${limit}`);
-      
-      if (response.data?.data && Array.isArray(response.data.data)) {
-        const transactions = response.data.data;
-        setPointsHistory(transactions);
-        setFilteredHistory(transactions);
-        calculateStats(transactions);
-      }
-      
+      const limit = 100;
+
+      // Fetch both APIs in parallel
+      const [pointsResponse, transactionsResponse] = await Promise.all([
+        axios.get(`/api/points/history/${userId}?limit=${limit}`),
+        axios.get(`/api/transactions/${userId}?limit=${limit}`)
+      ]);
+
+      console.log("✅ Points history:", pointsResponse.data);
+      console.log("✅ General transactions:", transactionsResponse.data);
+
+      const pointsData: UnifiedTransaction[] = (pointsResponse.data?.data || []).map((tx: PointsTransaction) => ({
+        ...tx,
+        source: 'points' as const
+      }));
+
+      const transactionsData: UnifiedTransaction[] = (transactionsResponse.data?.data || []).map((tx: GeneralTransaction) => ({
+        ...tx,
+        source: 'general' as const
+      }));
+
+      // Deduplicate based on tx_hash
+      const seenHashes = new Set<string>();
+      const combined = [...pointsData, ...transactionsData].filter(tx => {
+        if (seenHashes.has(tx.tx_hash)) {
+          return false;
+        }
+        seenHashes.add(tx.tx_hash);
+        return true;
+      });
+
+      // Sort by date (newest first)
+      combined.sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      // Add unique IDs for React keys
+      const withUniqueIds = combined.map((tx, index) => ({
+        ...tx,
+        uniqueId: `${tx.source}-${tx.id}-${index}`
+      }));
+
+      setUnifiedHistory(withUniqueIds);
+      setFilteredHistory(withUniqueIds);
+      calculateStats(withUniqueIds);
+
+      console.log(`📊 Total unified transactions: ${withUniqueIds.length}`);
+
     } catch (error) {
-      console.error("❌ Error fetching points history:", error);
+      console.error("❌ Error fetching transaction history:", error);
       toast({
         title: "History Error",
         description: "Could not fetch transaction history. Please try again.",
@@ -83,31 +153,51 @@ const History = () => {
   };
 
   // Calculate transaction statistics
-  const calculateStats = (transactions: PointsTransaction[]) => {
+  const calculateStats = (transactions: UnifiedTransaction[]) => {
     const bought = transactions
       .filter(tx => tx.type === 'buy_points')
       .reduce((sum, tx) => sum + tx.amount, 0);
-    
+
     const sold = transactions
       .filter(tx => tx.type === 'sell_points')
+      .reduce((sum, tx) => sum + tx.amount, 0);
+
+    const deposited = transactions
+      .filter(tx => tx.type === 'deposit')
+      .reduce((sum, tx) => sum + tx.amount, 0);
+
+    const withdrawn = transactions
+      .filter(tx => tx.type === 'withdraw')
+      .reduce((sum, tx) => sum + tx.amount, 0);
+
+    const staked = transactions
+      .filter(tx => tx.type === 'stake')
+      .reduce((sum, tx) => sum + tx.amount, 0);
+
+    const unstaked = transactions
+      .filter(tx => tx.type === 'unstake')
       .reduce((sum, tx) => sum + tx.amount, 0);
 
     setStats({
       totalBought: bought,
       totalSold: sold,
+      totalDeposited: deposited,
+      totalWithdrawn: withdrawn,
+      totalStaked: staked,
+      totalUnstaked: unstaked,
       totalTransactions: transactions.length,
-      netChange: bought - sold
+      netChange: bought - sold + deposited - withdrawn + unstaked - staked
     });
   };
 
   // Filter transactions
   const applyFilter = (filter: string) => {
     setSelectedFilter(filter);
-    
+
     if (filter === 'all') {
-      setFilteredHistory(pointsHistory);
+      setFilteredHistory(unifiedHistory);
     } else {
-      const filtered = pointsHistory.filter(tx => tx.type === filter);
+      const filtered = unifiedHistory.filter(tx => tx.type === filter);
       setFilteredHistory(filtered);
     }
   };
@@ -115,16 +205,26 @@ const History = () => {
   // Format transaction type
   const formatTransactionType = (type: string): string => {
     switch (type) {
+      // Points transactions
       case 'buy_points':
         return 'Bought Points';
       case 'sell_points':
         return 'Sold Points';
+
+      // General transactions
+      case 'deposit':
+        return 'Deposited';
+      case 'withdraw':
+        return 'Withdrawn';
       case 'stake':
         return 'Staked';
       case 'unstake':
         return 'Unstaked';
+      case 'completed':
+        return 'Completed';
       case 'referral_reward':
         return 'Referral Reward';
+
       default:
         return type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
     }
@@ -133,14 +233,14 @@ const History = () => {
   // Format date and time
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
-    const dateStr = date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
+    const dateStr = date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
     });
-    const timeStr = date.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    const timeStr = date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
     });
     return { date: dateStr, time: timeStr };
   };
@@ -150,7 +250,7 @@ const History = () => {
     const now = new Date();
     const past = new Date(dateString);
     const diffInSeconds = Math.floor((now.getTime() - past.getTime()) / 1000);
-    
+
     if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
     const diffInMinutes = Math.floor(diffInSeconds / 60);
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
@@ -164,31 +264,36 @@ const History = () => {
 
   // Get transaction sign and color
   const getTransactionDetails = (type: string) => {
-    if (type === 'buy_points' || type === 'referral_reward' || type === 'unstake') {
+    // Positive transactions
+    const positiveTypes = ['buy_points', 'referral_reward', 'unstake', 'withdraw', 'completed'];
+
+    if (positiveTypes.includes(type)) {
       return { sign: '+', color: 'text-green-400', icon: <TrendingUp className="w-4 h-4" /> };
     }
-    return { sign: '-', color: 'text-red-400', icon: <TrendingDown className="w-4 h-4" /> };
+    return { sign: '-', color: 'text-[#A07715]', icon: <TrendingDown className="w-4 h-4" /> };
   };
 
   // Open transaction in explorer
   const openTransaction = (txHash: string) => {
-    // Replace with your actual blockchain explorer URL
-    window.open(`https://etherscan.io/tx/${txHash}`, '_blank');
+    window.open(`https://basescan.org/tx/${txHash}`, '_blank');
   };
 
   // Initial fetch
   useEffect(() => {
     if (authenticated && userId) {
-      fetchPointsHistory();
+      fetchAllTransactionHistory();
     }
   }, [authenticated, userId]);
 
-  // Filter options
+  // Filter options - Updated with all transaction types
   const filterOptions = [
     { value: 'all', label: 'All' },
-    { value: 'buy_points', label: 'Buys' },
-    { value: 'sell_points', label: 'Sells' },
-    { value: 'stake', label: 'Stakes' },
+    { value: 'buy_points', label: 'Buy' },
+    { value: 'sell_points', label: 'Sell' },
+    { value: 'deposit', label: 'Deposit' },
+    { value: 'withdraw', label: 'Withdraw' },
+    { value: 'stake', label: 'Stake' },
+    { value: 'unstake', label: 'Unstake' },
     { value: 'referral_reward', label: 'Rewards' }
   ];
 
@@ -209,10 +314,21 @@ const History = () => {
           <h1 className="text-xl font-bold text-golden-light">Transaction History</h1>
         </div>
 
-        <img src={logo} alt="" className="h-8 w-auto" />
+        <button
+          onClick={fetchAllTransactionHistory}
+          className="p-2 rounded-full bg-golden-light/10 hover:bg-golden-light/20 transition-colors"
+          disabled={historyLoading}
+        >
+          <motion.div
+            animate={historyLoading ? { rotate: 360 } : {}}
+            transition={{ duration: 1, repeat: historyLoading ? Infinity : 0, ease: "linear" }}
+          >
+            <RefreshCw className="w-5 h-5 text-golden-light" />
+          </motion.div>
+        </button>
       </header>
 
-      {/* Statistics Cards */}
+      {/* Statistics Cards - Updated with all stats */}
       <motion.div
         className="grid grid-cols-2 gap-4 mb-4"
         initial={{ opacity: 0, y: 20 }}
@@ -222,49 +338,73 @@ const History = () => {
         {/* Total Bought */}
         <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-4 h-4 text-green-400" />
-            <p className="text-xs font-extralight text-muted-foreground">Total Bought</p>
+            <TrendingUp className="w-4 h-4 text-[#A07715]" />
+            <p className="text-xs font-regular text-golden-light">Total Bought</p>
           </div>
-          <p className="text-2xl font-bold text-green-400">
+          <p className="text-2xl font-bold text-[#A07715]">
             + ${stats.totalBought.toFixed(2)}
           </p>
-          <p className="text-xs text-muted-foreground mt-1">Of Points</p>
+          <p className="text-xs text-[#A07715] mt-1">Points</p>
         </div>
 
         {/* Total Sold */}
         <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingDown className="w-4 h-4 text-red-400" />
-            <p className="text-xs font-extralight text-muted-foreground">Total Sold</p>
+            <TrendingDown className="w-4 h-4 text-[#A07715]" />
+            <p className="text-xs font-regular text-golden-light">Total Sold</p>
           </div>
-          <p className="text-2xl font-bold text-red-400">
+          <p className="text-2xl font-bold text-[#A07715]">
             - ${stats.totalSold.toFixed(2)}
           </p>
-          <p className="text-xs text-muted-foreground mt-1">Of Points</p>
+          <p className="text-xs text-[#A07715] mt-1">Points</p>
+        </div>
+
+        {/* Total Deposited */}
+        <div className="bg-card border border-border rounded-2xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="w-4 h-4 text-green-400" />
+            <p className="text-xs font-regular text-golden-light">Deposited</p>
+          </div>
+          <p className="text-2xl font-bold text-green-400">
+            + ${stats.totalDeposited.toFixed(2)}
+          </p>
+          <p className="text-xs text-green-400 mt-1">USDL</p>
+        </div>
+
+        {/* Total Staked */}
+        <div className="bg-card border border-border rounded-2xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingDown className="w-4 h-4 text-[#A07715]" />
+            <p className="text-xs font-regular text-golden-light">Staked</p>
+          </div>
+          <p className="text-2xl font-bold text-[#A07715]">
+            ${stats.totalStaked.toFixed(2)}
+          </p>
+          <p className="text-xs text-[#A07715] mt-1">USDL</p>
         </div>
 
         {/* Net Change */}
         <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-2">
-            <Diff className="w-4 h-4 text-golden-light" />
-            <p className="text-xs font-extralight text-muted-foreground">Net Change</p>
+            <Diff className="w-4 h-4 text-[#A07715]" />
+            <p className="text-xs font-regular text-golden-light">Net Change</p>
           </div>
           <p className={`text-2xl font-bold ${stats.netChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
             {stats.netChange >= 0 ? '+' : ''} ${stats.netChange.toFixed(2)}
           </p>
-          <p className="text-xs text-muted-foreground mt-1">Of Points</p>
+          <p className="text-xs text-[#A07715] mt-1">Overall</p>
         </div>
 
         {/* Total Transactions */}
         <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-2">
-            <FileText className="w-4 h-4 text-golden-light" />
-            <p className="text-xs font-extralight text-muted-foreground">Total Txns</p>
+            <FileText className="w-4 h-4 text-[#A07715]" />
+            <p className="text-xs font-regular text-golden-light">Total Txns</p>
           </div>
-          <p className="text-2xl font-bold text-golden-light">
+          <p className="text-2xl font-bold text-[#A07715]">
             {stats.totalTransactions}
           </p>
-          <p className="text-xs text-muted-foreground mt-1">Transactions</p>
+          <p className="text-xs text-[#A07715] mt-1">Transactions</p>
         </div>
       </motion.div>
 
@@ -284,11 +424,10 @@ const History = () => {
             <button
               key={option.value}
               onClick={() => applyFilter(option.value)}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                selectedFilter === option.value
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${selectedFilter === option.value
                   ? 'bg-golden-light text-black'
                   : 'bg-[#31302F] text-golden-light hover:bg-golden-light/20'
-              }`}
+                }`}
             >
               {option.label}
             </button>
@@ -298,7 +437,7 @@ const History = () => {
 
       {/* Transactions List */}
       <motion.div
-        className="space-y-3 "
+        className="space-y-3"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
@@ -318,7 +457,7 @@ const History = () => {
           <div className="bg-card border border-border rounded-2xl p-8 text-center">
             <p className="text-lg font-bold text-golden-light mb-2">No transactions found</p>
             <p className="text-sm text-muted-foreground">
-              {selectedFilter !== 'all' 
+              {selectedFilter !== 'all'
                 ? 'Try changing the filter or make your first transaction'
                 : 'Make your first transaction to see it here'}
             </p>
@@ -327,11 +466,11 @@ const History = () => {
           filteredHistory.map((transaction, index) => {
             const { date, time } = formatDateTime(transaction.created_at);
             const { sign, color, icon } = getTransactionDetails(transaction.type);
-            
+
             return (
               <motion.div
-                key={transaction.id}
-                className="bg-card border border-border rounded-2xl p-4 hover:border-golden-light/30 transition-colors "
+                key={transaction.uniqueId}
+                className="bg-card border border-border rounded-2xl p-4 hover:border-golden-light/30 transition-colors"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
@@ -339,13 +478,22 @@ const History = () => {
                 <div className="flex justify-between items-start mb-3">
                   {/* Left Side - Transaction Info */}
                   <div className="flex items-start gap-3">
-                    <div className={`p-2 rounded-lg bg-[#31302F] ${color}`}>
+                    <div className={`p-2 rounded-lg bg-[#31302F] text-[#A07715]`}>
                       {icon}
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-golden-light mb-1">
-                        {formatTransactionType(transaction.type)}
-                      </p>
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-sm font-bold text-golden-light">
+                          {formatTransactionType(transaction.type)}
+                        </p>
+                        {/* Source Badge */}
+                        <span className={`text-xs px-2 py-0.5 rounded ${transaction.source === 'points'
+                            ? 'bg-golden-light/20 text-golden-light'
+                            : 'bg-blue-500/20 text-blue-400'
+                          }`}>
+                          {transaction.source === 'points' ? 'Points' : 'Wallet'}
+                        </span>
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {date} • {time}
                       </p>
@@ -358,19 +506,18 @@ const History = () => {
                   {/* Right Side - Amount */}
                   <div className="text-right">
                     <p className={`text-xl font-bold ${color}`}>
-                      {sign}{transaction.amount.toFixed(2)}
+                      {sign}${transaction.amount.toFixed(2)}
                     </p>
                     <div className="flex items-center gap-1 mt-1">
-                      <span className={`text-xs ${
-                        transaction.status === 'success' 
-                          ? 'text-green-400' 
+                      <span className={`text-xs ${transaction.status === 'success' || transaction.status === 'completed'
+                          ? 'text-green-400'
                           : transaction.status === 'pending'
-                          ? 'text-yellow-400'
-                          : 'text-red-400'
-                      }`}>
-                        {transaction.status === 'success' ? '✓ Success' : 
-                         transaction.status === 'pending' ? '⋯ Pending' : 
-                         '✗ Failed'}
+                            ? 'text-yellow-400'
+                            : 'text-red-400'
+                        }`}>
+                        {transaction.status === 'success' || transaction.status === 'completed' ? '✓ Success' :
+                          transaction.status === 'pending' ? '⋯ Pending' :
+                            '✗ Failed'}
                       </span>
                     </div>
                   </div>
@@ -401,7 +548,7 @@ const History = () => {
         )}
       </motion.div>
 
-      {/* Load More Button (if needed) */}
+      {/* Load More Button */}
       {filteredHistory.length >= 100 && (
         <motion.div
           className="mt-6"
@@ -410,7 +557,7 @@ const History = () => {
           transition={{ delay: 0.5 }}
         >
           <button
-            onClick={fetchPointsHistory}
+            onClick={fetchAllTransactionHistory}
             className="w-full bg-card border border-border rounded-2xl p-4 text-golden-light hover:border-golden-light/30 transition-colors"
           >
             <span className="text-sm font-bold">Load More Transactions</span>

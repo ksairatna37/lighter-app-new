@@ -21,7 +21,9 @@ const DepositSuccess = () => {
     pointsValue: 30.45,
     newBalance: 9,
     transactionHash: "SDFSDF5484SD",
-    orderId: "SDFSDF5484SD",
+    blockNumber: null,
+    gasUsed: null,
+    referralInfo: null,
     date: new Date().toLocaleDateString('en-US', { 
       weekday: 'short', 
       month: 'short', 
@@ -43,7 +45,7 @@ const DepositSuccess = () => {
   }, []);
 
   const handleShare = async () => {
-    const shareText = `🎉 I just earned ${depositData.pointsEarned} Lighter Points worth $${depositData.pointsValue} on LighterFarm! 🚀`;
+    const shareText = `🎉 I just earned ${depositData.pointsEarned.toFixed(2)} Lighter Points worth $${depositData.pointsValue} on LighterFarm! 🚀`;
     
     if (navigator.share) {
       try {
@@ -80,7 +82,7 @@ const DepositSuccess = () => {
   };
 
   const handleViewTransaction = () => {
-    // Open transaction in explorer (you can customize this URL)
+    // Open transaction in Base explorer
     const explorerUrl = `https://basescan.org/tx/${depositData.transactionHash}`;
     window.open(explorerUrl, '_blank');
     
@@ -170,7 +172,7 @@ const DepositSuccess = () => {
             You've successfully earned
           </p>
           <p className="text-4xl font-bold text-golden-light mb-2">
-            {depositData.pointsEarned} Lighter Points
+            {depositData.pointsEarned.toFixed(2)} Lighter Points
           </p>
           <p className="text-sm text-golden-light font-extralight opacity-60">
             Worth approximately ${depositData.pointsValue}
@@ -202,7 +204,7 @@ const DepositSuccess = () => {
           </div>
         </motion.div>
 
-        {/* Transaction Details Card - Collapsible/Expandable */}
+        {/* Transaction Details Card - With actual data */}
         <motion.div 
           className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-4 w-full"
           initial={{ opacity: 0, y: 20 }}
@@ -223,7 +225,9 @@ const DepositSuccess = () => {
                 onClick={handleViewTransaction}
                 className="flex items-center gap-2 text-foreground font-semibold hover:text-golden-light transition-colors"
               >
-                <span className="font-mono text-sm">{depositData.transactionHash.slice(0, 8)}...</span>
+                <span className="font-mono text-sm">
+                  {depositData.transactionHash.slice(0, 6)}...{depositData.transactionHash.slice(-4)}
+                </span>
                 <ExternalLink className="w-4 h-4" />
               </button>
             </div>
@@ -235,35 +239,27 @@ const DepositSuccess = () => {
               <span className="text-golden-light font-extralight opacity-60">Network</span>
               <span className="text-foreground font-semibold text-sm">Base Mainnet</span>
             </div>
+            {depositData.blockNumber && (
+              <div className="flex justify-between items-center">
+                <span className="text-golden-light font-extralight opacity-60">Block Number</span>
+                <span className="text-foreground font-semibold text-sm">
+                  {depositData.blockNumber.toLocaleString()}
+                </span>
+              </div>
+            )}
+            {depositData.gasUsed && (
+              <div className="flex justify-between items-center">
+                <span className="text-golden-light font-extralight opacity-60">Gas Used</span>
+                <span className="text-foreground font-semibold text-sm">
+                  {depositData.gasUsed.toLocaleString()}
+                </span>
+              </div>
+            )}
           </div>
         </motion.div>
 
-        {/* Achievement Card */}
-        <motion.div 
-          className="bg-gradient-to-r from-[#7D5A02]/20 to-[#A07715]/20 border border-golden-light/30 rounded-2xl p-4 mb-8 w-full"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7 }}
-        >
-          <div className="text-center">
-            <div className="text-3xl mb-2">🏆</div>
-            <h4 className="text-golden-light font-semibold mb-1">Achievement Unlocked!</h4>
-            <p className="text-xs text-golden-light font-extralight opacity-80">
-              You're now actively farming on Lighter Farm
-            </p>
-            <div className="mt-3 flex items-center justify-center gap-4 text-xs">
-              <div className="text-center">
-                <div className="text-golden-light font-bold">+{depositData.pointsEarned}</div>
-                <div className="text-golden-light/60">Points</div>
-              </div>
-              <div className="w-px h-8 bg-golden-light/30"></div>
-              <div className="text-center">
-                <div className="text-golden-light font-bold">Level 1</div>
-                <div className="text-golden-light/60">Farmer</div>
-              </div>
-            </div>
-          </div>
-        </motion.div>
+       
+
       </div>
 
       {/* Action Buttons - Enhanced */}
@@ -303,37 +299,7 @@ const DepositSuccess = () => {
         </motion.div>
       </div>
 
-      {/* Next Steps Suggestion */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1.0 }}
-        className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-4 mx-4 mt-4"
-      >
-        <div className="text-center">
-          <h5 className="text-golden-light font-semibold text-sm mb-2">What's Next?</h5>
-          <div className="grid grid-cols-3 gap-4 text-xs">
-            <div className="text-center">
-              <div className="w-8 h-8 bg-golden-light/20 rounded-full flex items-center justify-center mx-auto mb-1">
-                <span className="text-golden-light">🌱</span>
-              </div>
-              <p className="text-golden-light/80">Start Farming</p>
-            </div>
-            <div className="text-center">
-              <div className="w-8 h-8 bg-golden-light/20 rounded-full flex items-center justify-center mx-auto mb-1">
-                <span className="text-golden-light">👥</span>
-              </div>
-              <p className="text-golden-light/80">Invite Friends</p>
-            </div>
-            <div className="text-center">
-              <div className="w-8 h-8 bg-golden-light/20 rounded-full flex items-center justify-center mx-auto mb-1">
-                <span className="text-golden-light">📈</span>
-              </div>
-              <p className="text-golden-light/80">Track Progress</p>
-            </div>
-          </div>
-        </div>
-      </motion.div>
+     
     </Container>
   );
 };

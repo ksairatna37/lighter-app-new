@@ -21,24 +21,7 @@ export function Splash() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center py-6 px-4">
-      {/* Background decorative elements */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.5, rotate: -45 }}
-        animate={{ opacity: 0.08, scale: 1, rotate: 0 }}
-        transition={{ duration: 2, ease: "easeOut" }}
-        className="absolute top-16 right-6 z-0"
-      >
-        <img src={slice} alt="" className="w-24 h-24 rotate-12" />
-      </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, scale: 0.3, rotate: 45 }}
-        animate={{ opacity: 0.06, scale: 1, rotate: 0 }}
-        transition={{ duration: 2.5, delay: 0.5, ease: "easeOut" }}
-        className="absolute bottom-32 left-6 z-0"
-      >
-        <img src={slice} alt="" className="w-20 h-20 -rotate-12" />
-      </motion.div>
 
       {/* Top Section with Logo and Content - Matching Onboarding1 structure */}
       <div className="flex-1 flex flex-col items-start justify-center w-full max-w-md relative z-10">

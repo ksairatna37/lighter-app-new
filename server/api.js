@@ -378,6 +378,38 @@ app.post('/api/points/sell', async (req, res) => {
   }
 });
 
+// GET /api/transactions/:user_id
+app.get('/api/transactions/:user_id', async (req, res) => {
+  try {
+    const { user_id } = req.params;
+    const { limit } = req.query;
+
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID is required'
+      });
+    }
+
+    let endpoint = `/api/transactions/${user_id}`;
+    if (limit) {
+      endpoint += `?limit=${limit}`;
+    }
+
+    const result = await forwardToBackend({
+      endpoint,
+      method: 'GET',
+      authToken: getAuthToken(`/api/transactions/${user_id}`)
+    });
+
+    return res.status(result.status).json(result.data);
+
+  } catch (error) {
+    return handleError(error, req, res);
+  }
+});
+
+
 // GET /api/points/history/:user_id
 app.get('/api/points/history/:user_id', async (req, res) => {
   try {

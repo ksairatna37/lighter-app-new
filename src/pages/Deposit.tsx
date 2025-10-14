@@ -37,15 +37,17 @@ const Deposit = () => {
       "type": "function"
     }
   ];
-  const USDC_ADDRESS = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
-  const provider = new ethers.JsonRpcProvider("https://mainnet.infura.io/v3/3b60e88027de49bba4bd65af373611df"); // Or Alchemy/etc.
-  const usdc = new ethers.Contract(USDC_ADDRESS, USDC_ABI, provider);
+
 
   // Loading states
   const [balanceLoading, setBalanceLoading] = useState<boolean>(false);
   const [depositLoading, setDepositLoading] = useState<boolean>(false);
   // USDC balance from backend
   const [usdcBalance, setusdcBalance] = useState(0);
+
+  const storedData = localStorage.getItem(user?.id);
+  const userdata = storedData ? JSON.parse(storedData) : null;
+  const points = userdata?.referral_code;
   // User data from API response
   type UserData = {
     id: string;
@@ -189,15 +191,30 @@ const Deposit = () => {
           duration: 3000,
         });
 
+        if (window.Audio) {
+          try {
+            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApFn+DyvmMcBS2FzvLZiDYIG2m+7+WiTAwO'); 
+            audio.volume = 0.6;
+            audio.play().catch(() => {});
+          } catch (e) { /* empty */ }
+        }
+
         // Navigate to success page with actual response data
+        const pointdiff = response.data.new_points - points || 0;
+        const actualPointsEarned = pointdiff || 0;
+        const actualNewBalance = response.data.new_balance || 0;
+        const actualTxHash = response.data.tx_hash || '';
+
         navigate("/deposit/success", {
           state: {
             amount: selectedAmount,
-            pointsEarned: response.data.points_earned || pointsEarned,
-            pointsValue: response.data.points_value || (pointsEarned * 4.005).toFixed(2),
-            newBalance: response.data.new_balance || (usdcBalance + selectedAmount),
-            transactionHash: response.data.transaction_hash || `0x${Math.random().toString(16).substr(2, 8)}`,
-            orderId: response.data.order_id || `ORDER_${Date.now()}`,
+            pointsEarned: actualPointsEarned,
+            pointsValue: (actualPointsEarned * 4.005).toFixed(2),
+            newBalance: actualNewBalance,
+            transactionHash: actualTxHash,
+            blockNumber: response.data.block_number || null,
+            gasUsed: response.data.gas_used || null,
+            referralInfo: response.data.referral_info || null,
             date: new Date().toLocaleDateString('en-US', {
               weekday: 'short',
               month: 'short',
@@ -318,7 +335,7 @@ const Deposit = () => {
 
   // Amount options with points
   const amounts = [
-    { value: 0.2, points: 24.9 },
+    { value: 0.1, points: 24.9 },
     { value: 250, points: 62.3 },
     { value: 500, points: 124.7 },
     { value: 1000, points: 249.4 },

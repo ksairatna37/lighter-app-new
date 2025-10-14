@@ -71,7 +71,7 @@ MenuCard.displayName = 'MenuCard';
 const Profile = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { address, logout, refetchBalance } = useWallet();
+  const { address, logout } = useWallet();
   const { ready, authenticated, user, exportWallet } = usePrivy();
   const stored = localStorage.getItem(user.id);
   const localdata = JSON.parse(stored);
@@ -129,13 +129,13 @@ const Profile = () => {
   // Memoize callback functions to prevent recreation
   const copyAddress = useCallback(() => {
     if (address) {
-      navigator.clipboard.writeText(address);
+      navigator.clipboard.writeText(localdata.wallet_address);
       toast({
         title: "🎯 Copied!",
         description: "Wallet address copied to clipboard",
       });
     }
-  }, [address, toast]);
+  }, [localdata.wallet_address, toast]);
 
   const handleLogout = useCallback(async () => {
     try {

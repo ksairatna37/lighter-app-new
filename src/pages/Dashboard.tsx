@@ -44,7 +44,30 @@ interface UserBalanceData {
   wallet_address: string
 }
 
+// Add this interface for general transactions
+interface GeneralTransaction {
+  id: string;
+  user_id: string;
+  type: string; // "deposit", "withdraw", "stake", "unstake", etc.
+  tx_hash: string;
+  status: string;
+  amount: number;
+  created_at: string;
+}
+
+// Your existing interface
 interface PointsTransaction {
+  id: string;
+  amount: number;
+  created_at: string;
+  status: string;
+  tx_hash: string;
+  type: string; // "buy_points", "sell_points", etc.
+  user_id: string;
+}
+
+// Unified interface for display
+interface UnifiedTransaction {
   id: string;
   amount: number;
   created_at: string;
@@ -52,7 +75,10 @@ interface PointsTransaction {
   tx_hash: string;
   type: string;
   user_id: string;
+  source: 'points' | 'general';
+  uniqueId?: string; // ✅ Add optional unique ID for React keys
 }
+
 
 const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
   const navigate = useNavigate();
@@ -102,20 +128,31 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
   // Helper function to format transaction type
   const formatTransactionType = (type: string): string => {
     switch (type) {
+      // Points transactions
       case 'buy_points':
         return 'Bought Points';
       case 'sell_points':
         return 'Sold Points';
+
+      // General transactions
+      case 'deposit':
+        return 'Deposited';
+      case 'withdraw':
+        return 'Withdrawn';
       case 'stake':
         return 'Staked';
       case 'unstake':
         return 'Unstaked';
+      case 'completed':
+        return 'Completed';
       case 'referral_reward':
         return 'Referral Reward';
+
       default:
         return type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
     }
   };
+
 
   // Helper function to format time ago
   const getTimeAgo = (dateString: string): string => {
@@ -136,11 +173,31 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
 
   // Helper function to determine if transaction is positive or negative
   const getTransactionSign = (type: string): string => {
-    if (type === 'buy_points' || type === 'referral_reward' || type === 'unstake') {
+    // Positive transactions (user receives)
+    const positiveTypes = [
+      'buy_points',
+      'referral_reward',
+      'unstake',
+      'withdraw',
+      'completed'
+    ];
+
+    // Negative transactions (user sends/spends)
+    const negativeTypes = [
+      'sell_points',
+      'stake',
+      'deposit'
+    ];
+
+    if (positiveTypes.includes(type)) {
       return '+';
+    } else if (negativeTypes.includes(type)) {
+      return '-';
     }
-    return '-';
+
+    return '';
   };
+
 
   // Timer countdown effect
   useEffect(() => {
@@ -320,7 +377,7 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
     await Promise.all([
       fetchUserBalance(),
       fetchLighterPointPrice(),
-      fetchPointsHistory()
+      fetchAllTransactionHistory()
     ]);
   };
 
@@ -342,35 +399,69 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
     return () => clearInterval(interval);
   }, [authenticated]);
 
-  // Initial data fetch when component mounts
-  // Add this state near other states
   const [pointsHistory, setPointsHistory] = useState<PointsTransaction[]>([]);
+  const [generalTransactions, setGeneralTransactions] = useState<GeneralTransaction[]>([]);
+  const [unifiedHistory, setUnifiedHistory] = useState<UnifiedTransaction[]>([]);
   const [historyLoading, setHistoryLoading] = useState<boolean>(false);
 
+
   // Update the fetchPointsHistory function
-  const fetchPointsHistory = async () => {
+  const fetchAllTransactionHistory = async () => {
     if (!userId) {
-      console.warn("User ID not found - cannot fetch points history");
+      console.warn("User ID not found - cannot fetch transaction history");
       return;
     }
 
-    console.log("📜 Fetching points history for user:", userId);
     setHistoryLoading(true);
 
     try {
-      const limit = 10;
-      const response = await axios.get(`/api/points/history/${userId}?limit=${limit}`);
+      const limit = 100;
 
-      console.log("✅ Points history fetched successfully:");
-      console.log("📊 Transaction data:", response.data);
+      const [pointsResponse, transactionsResponse] = await Promise.all([
+        axios.get(`/api/points/history/${userId}?limit=${limit}`),
+        axios.get(`/api/transactions/${userId}?limit=${limit}`)
+      ]);
 
-      if (response.data?.data && Array.isArray(response.data.data)) {
-        console.log(`📝 Total transactions: ${response.data.data.length}`);
-        setPointsHistory(response.data.data);
-      }
+   
+
+      const pointsData: UnifiedTransaction[] = (pointsResponse.data?.data || []).map((tx: PointsTransaction) => ({
+        ...tx,
+        source: 'points' as const
+      }));
+
+      const transactionsData: UnifiedTransaction[] = (transactionsResponse.data?.data || []).map((tx: GeneralTransaction) => ({
+        ...tx,
+        source: 'general' as const
+      }));
+
+      // ✅ Deduplicate based on tx_hash (keep the first occurrence)
+      const seenHashes = new Set<string>();
+      const combined = [...pointsData, ...transactionsData].filter(tx => {
+        if (seenHashes.has(tx.tx_hash)) {
+          return false; // Skip duplicate
+        }
+        seenHashes.add(tx.tx_hash);
+        return true;
+      });
+
+      // Sort by date (newest first)
+      combined.sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      // ✅ Add unique IDs for React keys
+      const withUniqueIds = combined.map((tx, index) => ({
+        ...tx,
+        uniqueId: `${tx.source}-${tx.id}-${index}` // Create unique ID for React key
+      }));
+
+      setPointsHistory(pointsResponse.data?.data || []);
+      setGeneralTransactions(transactionsResponse.data?.data || []);
+      setUnifiedHistory(withUniqueIds);
+
 
     } catch (error) {
-      console.error("❌ Error fetching points history:", error);
+      console.error("❌ Error fetching transaction history:", error);
 
       if (axios.isAxiosError(error)) {
         console.error("Error details:", {
@@ -383,14 +474,17 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
     }
   };
 
+
+
   // Updated useEffect
   useEffect(() => {
     if (authenticated && userId) {
       fetchUserBalance();
       fetchLighterPointPrice();
-      fetchPointsHistory(); // 👈 Added new function call
+      fetchAllTransactionHistory(); // ✅ Call the unified function
     }
   }, [authenticated, userId]);
+
 
   // Formatted exchange rate for display
   const { rate: formattedRate, color } = formatExchangeRate(lighterPointData.exchange_rate);
@@ -654,17 +748,26 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
             <div className="text-center py-4">
               <p className="text-sm text-muted-foreground">Loading transactions...</p>
             </div>
-          ) : pointsHistory.length === 0 ? (
+          ) : unifiedHistory.length === 0 ? (
             <div className="text-center py-4">
               <p className="text-sm text-muted-foreground">No recent activity</p>
             </div>
           ) : (
-            pointsHistory.slice(0, 3).map((transaction) => (
-              <div key={transaction.id} className="flex justify-between items-start">
+            unifiedHistory.slice(0, 5).map((transaction) => (
+             <div key={transaction.uniqueId || `${transaction.source}-${transaction.id}`} className="flex justify-between items-start">
                 <div className="font-extralight text-xs opacity-60">
-                  <p className="text-sm text-foreground">
-                    {formatTransactionType(transaction.type)}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-foreground">
+                      {formatTransactionType(transaction.type)}
+                    </p>
+                    {/* Optional: Badge to show source */}
+                    <span className={`text-xs px-2 py-0.5 rounded ${transaction.source === 'points'
+                      ? 'bg-golden-light/20 text-golden-light'
+                      : 'bg-blue-500/20 text-blue-400'
+                      }`}>
+                      {transaction.source === 'points' ? 'Points' : 'Wallet'}
+                    </span>
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     {getTimeAgo(transaction.created_at)}
                   </p>
@@ -677,12 +780,12 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
                 <div className="text-right">
                   <span className={`font-bold ${getTransactionSign(transaction.type) === '+'
                     ? 'text-green-400'
-                    : 'text-red-400'
+                    : 'text-[#A07715]'
                     }`}>
-                     {getTransactionSign(transaction.type)} ${transaction.amount.toFixed(2)}
+                    {getTransactionSign(transaction.type)} ${transaction.amount.toFixed(2)}
                   </span>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {transaction.status === 'success' ? '✓' : '⋯'}
+                    {transaction.status === 'success' || transaction.status === 'completed' ? '✓' : '⋯'}
                   </p>
                 </div>
               </div>
@@ -690,7 +793,7 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
           )}
         </div>
 
-        {pointsHistory.length > 5 && (
+        {unifiedHistory.length > 5 && (
           <button
             onClick={() => navigate("/history")}
             className="w-full mt-4 text-center text-sm text-golden-light hover:text-golden-light/80 transition-colors"
@@ -699,6 +802,7 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
           </button>
         )}
       </motion.div>
+
 
       <BottomNavigation />
     </Container>
