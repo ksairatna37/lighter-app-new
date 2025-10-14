@@ -82,36 +82,39 @@ const Deposit = () => {
 
         // Now get on-chain balance using the userInfo directly (not userData state)
         try {
-          const balance = await usdc.balanceOf(userInfo.wallet_address); // Use userInfo, not userData
-          const newBalance = parseFloat(balance) || 0;
-          console.log("usdc balance of", userInfo.wallet_address, "->", balance);
+          const balance = await usdc.balanceOf(userInfo.wallet_address);
+          console.log("Mainnet USDC:", ethers.formatUnits(balance, 6));
 
           // For Polygon
-          const USDC_POLYGON = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"; // USDC on Polygon
+          const USDC_POLYGON = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174";
           const polygonProvider = new ethers.JsonRpcProvider("https://polygon-rpc.com");
           const usdcPolygon = new ethers.Contract(USDC_POLYGON, USDC_ABI, polygonProvider);
           const balancePolygon = await usdcPolygon.balanceOf(userInfo.wallet_address);
           console.log("Polygon USDC:", ethers.formatUnits(balancePolygon, 6));
 
           // For Arbitrum
-          const USDC_ARBITRUM = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"; // Native USDC on Arbitrum
+          const USDC_ARBITRUM = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831";
           const arbitrumProvider = new ethers.JsonRpcProvider("https://arb1.arbitrum.io/rpc");
           const usdcArbitrum = new ethers.Contract(USDC_ARBITRUM, USDC_ABI, arbitrumProvider);
           const balanceArbitrum = await usdcArbitrum.balanceOf(userInfo.wallet_address);
           console.log("Arbitrum USDC:", ethers.formatUnits(balanceArbitrum, 6));
 
           // For Base
-          const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // USDC on Base
+          const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
           const baseProvider = new ethers.JsonRpcProvider("https://mainnet.base.org");
           const usdcBase = new ethers.Contract(USDC_BASE, USDC_ABI, baseProvider);
           const balanceBase = await usdcBase.balanceOf(userInfo.wallet_address);
-          console.log("Base USDC:", ethers.formatUnits(balanceBase, 6));
+          const formattedBalance = ethers.formatUnits(balanceBase, 6);
+          console.log("Base USDC:", formattedBalance);
 
-          setusdcBalance(newBalance);
+          // Convert string to number before setting state
+          setusdcBalance(parseFloat(formattedBalance));
+
         } catch (blockchainError) {
           console.error("❌ Error fetching on-chain balance:", blockchainError);
-          // Continue with backend balance even if blockchain call fails
+          setusdcBalance(0); // Set to 0 if error occurs
         }
+
 
 
       } else if (response.data && response.data.exists === 'no') {
@@ -486,8 +489,9 @@ const Deposit = () => {
                 Loading...
               </motion.span>
             ) : (
-              `$${usdcBalance.toFixed(2)} USDC`
+              `$${(usdcBalance || 0).toFixed(2)} USDC`
             )}
+
           </p>
           <button
             onClick={handleRefresh}
