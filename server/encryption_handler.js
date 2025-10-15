@@ -13,7 +13,7 @@ if (typeof window !== 'undefined') {
   globalThis.Buffer = Buffer;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-lighterfarm-hxgcccdkf8c5h9gw.centralindia-01.azurewebsites.net';
 
 // ✅ CRITICAL: This must match your backend's encryption key
 const ENCRYPTION_BASE_KEY = 'your-secret-encryption-key-here';
