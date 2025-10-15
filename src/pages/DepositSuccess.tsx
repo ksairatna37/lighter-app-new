@@ -39,7 +39,7 @@ const DepositSuccess = () => {
     // Hide celebration animation after 3 seconds
     const timer = setTimeout(() => {
       setShowCelebration(false);
-    }, 3000);
+    }, 1500);
 
     return () => clearTimeout(timer);
   }, []);

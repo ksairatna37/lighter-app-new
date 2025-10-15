@@ -3,7 +3,7 @@ import { Container } from "@/components/layout/Container";
 import { BottomNavigation } from "@/components/layout/BottomNavigation";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { ArrowLeft, RefreshCw, Copy, CheckCircle, Lock, Heart, Clock, Info } from "lucide-react";
+import { ArrowLeft, RefreshCw, Copy, CheckCircle, Lock, Heart, Clock, Info, Wallet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import logo from "@/assets/logo.png";
@@ -48,6 +48,41 @@ const Deposit = () => {
   const storedData = localStorage.getItem(user?.id);
   const userdata = storedData ? JSON.parse(storedData) : null;
   const points = userdata?.referral_code;
+
+  const [externalTrackingActive, setExternalTrackingActive] = useState(false);
+  const [trackingTimeLeft, setTrackingTimeLeft] = useState(0);
+
+
+  const checkExternalTrackingStatus = () => {
+    if (!user?.id) return;
+
+    const key = `${user.id}_trackexternaldeposit`;
+    try {
+      const stored = localStorage.getItem(key);
+      if (!stored) {
+        setExternalTrackingActive(false);
+        return;
+      }
+
+      const state = JSON.parse(stored);
+      const now = new Date();
+      const expiresAt = new Date(state.expiresAt);
+      const remainingSeconds = Math.floor((expiresAt.getTime() - now.getTime()) / 1000);
+
+      if (remainingSeconds > 0 && state.status === 'tracking') {
+        setExternalTrackingActive(true);
+        setTrackingTimeLeft(remainingSeconds);
+      } else {
+        setExternalTrackingActive(false);
+        localStorage.removeItem(key);
+      }
+    } catch (error) {
+      console.error('Failed to check tracking status:', error);
+      setExternalTrackingActive(false);
+    }
+  };
+
+
   // User data from API response
   type UserData = {
     id: string;
@@ -192,9 +227,9 @@ const Deposit = () => {
 
         if (window.Audio) {
           try {
-            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApFn+DyvmMcBS2FzvLZiDYIG2m+7+WiTAwO'); 
+            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApFn+DyvmMcBS2FzvLZiDYIG2m+7+WiTAwO');
             audio.volume = 0.6;
-            audio.play().catch(() => {});
+            audio.play().catch(() => { });
           } catch (e) { /* empty */ }
         }
 
@@ -257,10 +292,30 @@ const Deposit = () => {
     }
   };
 
+  useEffect(() => {
+    if (!externalTrackingActive || trackingTimeLeft <= 0) return;
+
+    const timer = setInterval(() => {
+      setTrackingTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          checkExternalTrackingStatus();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [externalTrackingActive, trackingTimeLeft]);
+
+
   // Load balance when component mounts
   useEffect(() => {
     if (authenticated && user?.id) {
       fetchUserBalance();
+      checkExternalTrackingStatus();
+
     }
   }, [authenticated, user?.id]);
 
@@ -334,7 +389,7 @@ const Deposit = () => {
 
   // Amount options with points
   const amounts = [
-    { value: 0.1, points: 24.9 },
+    { value: 100, points: 24.9 },
     { value: 250, points: 62.3 },
     { value: 500, points: 124.7 },
     { value: 1000, points: 249.4 },
@@ -373,7 +428,7 @@ const Deposit = () => {
   // Copy wallet address to clipboard
   const handleCopyWallet = async () => {
     try {
-      await navigator.clipboard.writeText(userData?.wallet_address || address || '');
+      await navigator.clipboard.writeText(userData?.wallet_address);
       toast({
         title: "🎯 Wallet Copied!",
         description: "Wallet address copied to clipboard",
@@ -385,6 +440,13 @@ const Deposit = () => {
         variant: "destructive",
       });
     }
+  };
+
+  // Navigate to external wallet deposit
+  const handleExternalWalletDeposit = () => {
+    checkExternalTrackingStatus(); // Refresh before navigating
+
+    navigate("/deposit/external");
   };
 
   return (
@@ -465,6 +527,72 @@ const Deposit = () => {
           transition={{ duration: 0.5, delay: 0.2 }}
         />
       </motion.div>
+
+      {/* ===== NEW: External Wallet Deposit Option ===== */}
+      {!externalTrackingActive && (
+        <motion.div
+          className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 border border-purple-400/30 rounded-2xl p-4 mb-6 cursor-pointer hover:border-purple-400/50 transition-all"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          onClick={handleExternalWalletDeposit}
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center">
+              <Wallet className="w-6 h-6 text-purple-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-golden-light font-semibold text-base mb-1">
+                Deposit from External Wallet
+              </h3>
+              <p className="text-golden-light/70 text-xs">
+                Send USDC from any wallet to earn points
+              </p>
+            </div>
+            <ArrowLeft className="w-5 h-5 text-purple-400 rotate-180" />
+          </div>
+        </motion.div>
+      )}
+      {/* External Wallet Tracking Status - Show if active */}
+      {externalTrackingActive && (
+        <motion.div
+          className="bg-gradient-to-r from-green-600/20 to-emerald-600/20 border border-green-400/40 rounded-2xl p-4 mb-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.06 }}
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
+              <Clock className="w-6 h-6 text-green-400 animate-pulse" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-golden-light font-semibold text-base mb-1">
+                Deposit in Progress
+              </h3>
+              <p className="text-golden-light/70 text-xs mb-2">
+                 Waiting for your USDC deposit from external wallet
+              </p>
+              <div className="flex items-center gap-2">
+                <Clock className="w-3.5 h-3.5 text-golden-light/60" />
+                <span className="text-golden-light text-sm font-semibold">
+                  {formatTime(trackingTimeLeft)} left
+                </span>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleExternalWalletDeposit}
+              className="bg-green-500/10 text-green-400 hover:bg-green-500/20 hover:text-green-300 text-xs px-3"
+            >
+              View
+            </Button>
+          </div>
+        </motion.div>
+      )}
+
+
+      {/* ===== END NEW ===== */}
 
       {/* Wallet Balance Card - Matching card style */}
       <motion.div
@@ -610,7 +738,7 @@ const Deposit = () => {
         <Button
           onClick={handleDeposit}
           className="w-full h-14 bg-gradient-to-r from-[#7D5A02] to-[#A07715] hover:opacity-90 text-background text-lg font-bold rounded-md text-white disabled:opacity-50"
-          disabled={!selectedAmount || depositLoading}
+          disabled={!selectedAmount || depositLoading || externalTrackingActive}
         >
           {depositLoading ? (
             <motion.div
@@ -633,16 +761,21 @@ const Deposit = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
         >
-          <h3 className="text-golden-light text-lg font-semibold mb-4 text-center">Ready to deposit</h3>
-          <p className="text-center text-golden-light font-extralight opacity-60 mb-4">
-            Click the deposit button to earn ${selectedAmount} worth of USDC and get {amounts.find(a => a.value === selectedAmount)?.points || 0} points
-          </p>
+          {externalTrackingActive ? "" : (<div><h3 className="text-golden-light text-lg font-semibold mb-4 text-center">Ready to deposit</h3>
+            <p className="text-center text-golden-light font-extralight opacity-60 mb-4">
+              Click the deposit button to earn ${selectedAmount} worth of USDC and get {amounts.find(a => a.value === selectedAmount)?.points || 0} points
+            </p></div>)}
+
           <div className="text-center">
-            <p className="text-sm text-foreground">
-              You'll earn <span className="font-semibold text-golden-light">
-                {amounts.find(a => a.value === selectedAmount)?.points || 0} points
-              </span>
-            </p>
+            {externalTrackingActive ? (
+              <p className="text-sm text-foreground">
+                External tracking is currently active. Please wait until it finishes before creating a new deposit.
+
+              </p>
+            ) : (
+              ""
+            )}
+
           </div>
         </motion.div>
       )}

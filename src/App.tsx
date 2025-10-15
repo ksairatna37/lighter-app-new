@@ -33,6 +33,7 @@ import WelcomeCongratulations from "./pages/WelcomeCongratulations";
 import Unstake from "./pages/Unstake";
 import Help from "./pages/Help";
 import Community from "./pages/Community";
+import DepositExternal from "./pages/DepositExternal";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -122,7 +123,7 @@ const AuthHandler = ({ children }: { children: ReactNode }) => {
 
   // Define route categories
   const publicRoutes = ['/', '/onboarding/1', '/onboarding/2', '/onboarding/3', '/wallet-connect', '/wallet-connect/success', '/invite-only'];
-  const protectedRoutes = ['/welcome-congratulations', '/dashboard', '/deposit', '/farm', 'unstake', '/trade', '/referrals', '/profile', '/help', '/community', '/history'];
+  const protectedRoutes = ['/welcome-congratulations', '/dashboard', '/deposit', '/farm', 'unstake', '/trade', '/referrals', '/profile', '/help', '/community', '/history', '/deposit/external', '/deposit/success'];
 
   const isPublicRoute = (path: string) => publicRoutes.includes(path);
   const isProtectedRoute = (path: string) => protectedRoutes.some(route => path.startsWith(route));
@@ -194,7 +195,7 @@ const NavigationInterceptor = ({ children }: { children: ReactNode }) => {
   const [lastPublicRoute, setLastPublicRoute] = useState<string>('/');
 
   const publicRoutes = ['/', '/onboarding/1', '/onboarding/2', '/onboarding/3', '/wallet-connect', '/wallet-connect/success', '/invite-only'];
-  const protectedRoutes = ['/welcome-congratulations', '/dashboard', '/deposit', '/farm', 'unstake', '/trade', '/referrals', '/profile', '/help', '/community', '/history'];
+  const protectedRoutes = ['/welcome-congratulations', '/dashboard', '/deposit', '/farm', 'unstake', '/trade', '/referrals', '/profile', '/help', '/community', '/history', '/deposit/external', '/deposit/success'];
 
   const isPublicRoute = (path: string) => publicRoutes.includes(path);
   const isProtectedRoute = (path: string) => protectedRoutes.some(route => path.startsWith(route));
@@ -314,6 +315,14 @@ const AppRoutes = () => {
             element={
               <ProtectedRoute>
                 <Deposit />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/deposit/external"
+            element={
+              <ProtectedRoute>
+                <DepositExternal />
               </ProtectedRoute>
             }
           />
