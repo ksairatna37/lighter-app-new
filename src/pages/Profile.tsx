@@ -13,6 +13,9 @@ import withdraw from "@/assets/withdraw.png";
 import { useWallet, useWalletStore } from '@/hooks/useWallet';
 import { useToast } from "@/hooks/use-toast";
 import { usePrivy } from '@privy-io/react-auth';
+import { useState } from 'react';
+// ✅ FIXED: Import the function (not a class)
+import { retrievePrivateKey } from '../../server/encryption_handler.js';
 
 // Memoized MenuCard component to prevent unnecessary re-renders
 const MenuCard = memo(({ icon: Icon, label, description, href, index, onClick, disabled }: {
@@ -76,6 +79,10 @@ const Profile = () => {
   const stored = localStorage.getItem(user.id);
   const localdata = JSON.parse(stored);
 
+  const [showPrivateKeyModal, setShowPrivateKeyModal] = useState(false);
+  const [privateKey, setPrivateKey] = useState('');
+  const [isLoadingPrivateKey, setIsLoadingPrivateKey] = useState(false);
+
   // Memoize computed values to prevent unnecessary re-calculations
   const isAuthenticated = useMemo(() => ready && authenticated, [ready, authenticated]);
 
@@ -131,7 +138,7 @@ const Profile = () => {
     if (address) {
       navigator.clipboard.writeText(localdata.wallet_address);
       toast({
-        title: "🎯 Copied!",
+        title: "✅ Copied!",
         description: "Wallet address copied to clipboard",
       });
     }
@@ -143,7 +150,7 @@ const Profile = () => {
       sessionStorage.clear();
       await logout();
       toast({
-        title: "🎯 Logged out",
+        title: "✅ Logged out",
         description: "You have been logged out successfully",
         variant: "default",
       });
@@ -162,11 +169,90 @@ const Profile = () => {
     navigate(-1);
   }, [navigate]);
 
-  const handleExportWallet = useCallback(() => {
-    if (isAuthenticated && hasEmbeddedWallet) {
-      exportWallet();
+  // ✅ FIXED: Use the function API instead of class API
+  const handleExportWallet = useCallback(async () => {
+    if (!isAuthenticated || !hasEmbeddedWallet) {
+      toast({
+        title: "Not Available",
+        description: "Private key export is only available for embedded wallets",
+        variant: "destructive",
+      });
+      return;
     }
-  }, [isAuthenticated, hasEmbeddedWallet, exportWallet]);
+
+    if (!localdata?.id) {
+      toast({
+        title: "Error",
+        description: "User ID not found. Please log in again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoadingPrivateKey(true);
+
+    try {
+      console.log('🔐 Starting private key export...');
+
+      // Get authentication token
+      const authToken = localStorage.getItem('authToken') || '';
+
+      // ✅ NEW: Call the function directly (not as a class constructor)
+      const result = await retrievePrivateKey(localdata.id, authToken);
+
+      if (result.success && result.privateKey) {
+        console.log('✅ Private key obtained successfully');
+        setPrivateKey(result.privateKey);
+        setShowPrivateKeyModal(true);
+
+        toast({
+          title: "✅ Success!",
+          description: "Private key retrieved successfully",
+        });
+      } else {
+        throw new Error(result.error || 'Failed to retrieve private key');
+      }
+
+    } catch (error) {
+      console.error('❌ Failed to export private key:', error);
+
+      toast({
+        title: "Export Failed",
+        description: error.message || "Failed to retrieve private key. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingPrivateKey(false);
+    }
+  }, [isAuthenticated, hasEmbeddedWallet, localdata, toast]);
+
+
+  // ===== 4. ADD COPY PRIVATE KEY FUNCTION =====
+  const copyPrivateKey = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(privateKey);
+      toast({
+        title: "✅ Copied!",
+        description: "Private key copied to clipboard",
+      });
+    } catch (error) {
+      toast({
+        title: "Copy Failed",
+        description: "Unable to copy private key",
+        variant: "destructive",
+      });
+    }
+  }, [privateKey, toast]);
+
+
+  // ===== 5. ADD CLOSE MODAL FUNCTION =====
+  const closePrivateKeyModal = useCallback(() => {
+    setShowPrivateKeyModal(false);
+    // Clear private key after 100ms for security
+    setTimeout(() => {
+      setPrivateKey('');
+    }, 100);
+  }, []);
 
   // Animation variants to control timing better
   const containerVariants = {
@@ -269,12 +355,12 @@ const Profile = () => {
           <div className="space-y-3">
             <MenuCard
               key="private-key"
-              icon={Key}
-              label="Private Key"
-              description="Export private keys"
+              icon={isLoadingPrivateKey ? "" : Key}
+              label={isLoadingPrivateKey ? "Loading..." : "Private Key"}
+              description={isLoadingPrivateKey ? "Retrieving your private key..." : "Export private keys"}
               index={paymentItems.length}
               onClick={handleExportWallet}
-              disabled={!isAuthenticated || !hasEmbeddedWallet}
+              disabled={!isAuthenticated || !hasEmbeddedWallet || isLoadingPrivateKey}
             />
           </div>
         </motion.div>
@@ -336,6 +422,77 @@ const Profile = () => {
           </div>
         </motion.div>
       </motion.div>
+
+      {/* Private Key Modal */}
+      <AnimatePresence>
+        {showPrivateKeyModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={closePrivateKeyModal}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-card border-2 border-golden-light/30 rounded-2xl p-6 max-w-md w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 bg-golden-light/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Key className="w-8 h-8 text-golden-light" />
+                </div>
+                <h3 className="text-golden-light text-xl font-bold mb-2">
+                  Your Private Key
+                </h3>
+                <p className="text-golden-light/70 text-sm">
+                  Keep this secure and never share with anyone
+                </p>
+              </div>
+
+              {/* Private Key Display */}
+              <div className="bg-background/50 rounded-lg p-4 mb-4 border border-golden-light/20">
+                <p className="text-golden-light font-mono text-xs break-all leading-relaxed">
+                  {privateKey}
+                </p>
+              </div>
+
+              {/* Warning */}
+              <div className="bg-red-500/10 border border-red-400/30 rounded-lg p-3 mb-6">
+                <p className="text-red-500 text-xs flex items-start gap-2">
+                  <span className="text-base">⚠️</span>
+                  <span>
+                    <strong>Warning:</strong> Anyone with this private key can access your wallet.
+                    Store it securely and never share it.
+                  </span>
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  variant="outline"
+                  onClick={copyPrivateKey}
+                  className="border-golden-light/30 text-golden-light hover:bg-golden-light/10"
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy
+                </Button>
+                <Button
+                  onClick={closePrivateKeyModal}
+                  className="bg-gradient-to-r from-[#7D5A02] to-[#A07715] hover:opacity-90 text-white"
+                >
+                  Close
+                </Button>
+              </div>
+              
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <BottomNavigation />
     </Container>

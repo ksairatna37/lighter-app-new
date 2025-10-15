@@ -4,4 +4,5 @@ import "./index.css";
 import { sdk } from '@farcaster/miniapp-sdk'
 sdk.actions.ready()
 
+
 createRoot(document.getElementById("root")!).render(<App />);

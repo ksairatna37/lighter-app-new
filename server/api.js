@@ -444,6 +444,66 @@ app.get('/api/points/history/:user_id', async (req, res) => {
   }
 });
 
+// GET /api/account/:user_id
+app.get('/api/account/:user_id', async (req, res) => {
+  try {
+    const { user_id } = req.params;
+
+    // Validation
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID is required'
+      });
+    }
+
+    // Build endpoint
+    const endpoint = `/api/account/${user_id}`;
+
+    // Forward to backend with auth
+    const result = await forwardToBackend({
+      endpoint,
+      method: 'GET',
+      authToken: getAuthToken(endpoint)
+    });
+
+    return res.status(result.status).json(result.data);
+
+  } catch (error) {
+    return handleError(error, req, res);
+  }
+});
+
+// GET /api/account/:user_id/encrypted
+app.get('/api/account/:user_id/encrypted', async (req, res) => {
+  try {
+    const { user_id } = req.params;
+
+    // Validation
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID is required'
+      });
+    }
+
+    // Build endpoint
+    const endpoint = `/api/account/${user_id}/encrypted`;
+
+    // Forward to backend with auth
+    const result = await forwardToBackend({
+      endpoint,
+      method: 'GET',
+      authToken: getAuthToken(endpoint)
+    });
+
+    return res.status(result.status).json(result.data);
+
+  } catch (error) {
+    return handleError(error, req, res);
+  }
+});
+
 
 // POST /api/check_user_exist
 app.post('/api/check_user_exist', async (req, res) => {
