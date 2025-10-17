@@ -17,6 +17,7 @@ import deposit from "@/assets/deposit.png";
 import { useWallet, useWalletStore } from '@/hooks/useWallet';
 import { usePrivy } from "@privy-io/react-auth";
 import axios from "axios";
+import { generateAuthToken } from "@/utils/authGenerator";
 import { ethers } from "ethers";
 
 const Deposit = () => {
@@ -104,8 +105,15 @@ const Deposit = () => {
     setBalanceLoading(true);
 
     try {
+      const endpoint = '/api/check_user_exist';
+      const authToken = generateAuthToken(endpoint);
+
       const response = await axios.post('/api/check_user_exist', {
         privy_id: user.id
+      }, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
       });
 
 
@@ -200,6 +208,9 @@ const Deposit = () => {
     setDepositLoading(true);
 
     try {
+      const endpoint = '/deposit';
+      const authToken = generateAuthToken(endpoint);
+
       const response = await axios.post('/api/deposit',
         {
           id: userData.id,
@@ -209,6 +220,7 @@ const Deposit = () => {
           headers: {
             'X-Privy-User-Id': user.id,
             'X-Wallet-Address': userData.wallet_address,
+            'Authorization': `Bearer ${authToken}`,
             'Content-Type': 'application/json'
           }
         }

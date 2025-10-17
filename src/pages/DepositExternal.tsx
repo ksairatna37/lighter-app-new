@@ -22,12 +22,13 @@ import logo from "@/assets/logo.png";
 import { usePrivy } from "@privy-io/react-auth";
 import { ethers } from "ethers";
 import QRCode from "qrcode";
+import axios from "axios";
+import { generateAuthToken } from "@/utils/authGenerator";
 
 // ===== TYPES =====
 interface TrackingState {
   status: 'tracking' | 'completed' | 'expired';
   externalWalletAddress: string;
-  selectedAmount: number | null;
   startedAt: string; // ISO timestamp
   expiresAt: string; // ISO timestamp
 }
@@ -39,9 +40,9 @@ const DepositExternal = () => {
 
   // Form states
   const [externalWalletAddress, setExternalWalletAddress] = useState("");
-  const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
   const [isValidAddress, setIsValidAddress] = useState(false);
   const [addressError, setAddressError] = useState("");
+  const [usersupabase, setUsersupabase] = useState("");
 
   // UI states
   const [showQR, setShowQR] = useState(false);
@@ -50,17 +51,11 @@ const DepositExternal = () => {
   const [isDepositStarted, setIsDepositStarted] = useState(false);
   const [timeLeft, setTimeLeft] = useState(600); // 10 minutes in seconds
   const [isRestoringState, setIsRestoringState] = useState(true);
+  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
 
   // Our receiving address (replace with actual address from backend)
-  const RECEIVING_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+  const RECEIVING_ADDRESS = "0xbcb711FaE189f599Cb42D1704B39f0EA4500FBF8";
 
-  // Amount options with points
-  const amounts = [
-    { value: 100, points: 24.9 },
-    { value: 250, points: 62.3 },
-    { value: 500, points: 124.7 },
-    { value: 1000, points: 249.4 },
-  ];
 
   // ===== LOCALSTORAGE UTILITIES =====
   const getStorageKey = () => {
@@ -145,7 +140,6 @@ const DepositExternal = () => {
       // Restore state
       console.log('🔄 Resuming tracking session...');
       setExternalWalletAddress(savedState.externalWalletAddress);
-      setSelectedAmount(savedState.selectedAmount);
       setIsValidAddress(true); // Already validated before
       setIsDepositStarted(true);
       setTimeLeft(remainingSeconds);
@@ -218,6 +212,7 @@ const DepositExternal = () => {
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
+          console.log('⏰ Timer reached 0 - triggering expiration');
           clearInterval(timer);
           handleTimerExpired();
           return 0;
@@ -229,8 +224,38 @@ const DepositExternal = () => {
     return () => clearInterval(timer);
   }, [isDepositStarted, timeLeft]);
 
+  // Cleanup polling on component unmount or when deposit is completed
+  useEffect(() => {
+    return () => {
+      stopPolling();
+    };
+  }, []);
+
+  // Stop polling when deposit is completed or timer expires
+  useEffect(() => {
+    if (!isDepositStarted) {
+      stopPolling();
+    }
+  }, [isDepositStarted]);
+
+  // Fetch usersupabase ID from localStorage
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    const stored = localStorage.getItem(user.id);
+    if (stored) {
+      const userData = JSON.parse(stored);
+      setUsersupabase(userData.id);
+    }
+  }, [user?.id]);
+
   // Handle timer expiration
   const handleTimerExpired = () => {
+    console.log('⏰ Timer expired - stopping all operations');
+    
+    // Stop polling immediately
+    stopPolling();
+    
     // Clear localStorage
     clearTrackingState();
 
@@ -240,12 +265,13 @@ const DepositExternal = () => {
       variant: "destructive",
     });
 
-    // Reset form
+    // Reset form and state
     setIsDepositStarted(false);
     setTimeLeft(600);
     setExternalWalletAddress("");
-    setSelectedAmount(null);
     setIsValidAddress(false);
+    
+    console.log('✅ Timer expiration cleanup completed');
   };
 
   // Format time display (MM:SS)
@@ -284,12 +310,141 @@ const DepositExternal = () => {
     }
   };
 
+  // Polling function to check deposit status every 50 seconds
+  const pollDepositStatus = async () => {
+    if (!user?.id || !externalWalletAddress || !usersupabase) return;
+    
+    // Don't make API calls if polling is already stopped
+    if (!pollingInterval) {
+      console.log('🛑 Polling already stopped, skipping API call');
+      return;
+    }
+    
+    // Don't make API calls if timer has expired
+    if (timeLeft <= 0) {
+      console.log('⏰ Timer expired, stopping polling');
+      stopPolling();
+      return;
+    }
+
+    try {
+      const endpoint = '/api/track_usdc_deposit';
+      const authToken = generateAuthToken(endpoint);
+
+      const response = await axios.post('/api/track_usdc_deposit', {
+        sender_address: externalWalletAddress,
+        user_id: usersupabase
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+          'X-Privy-User-Id': usersupabase
+        }
+      });
+
+      console.log('📊 Deposit tracking response:', response.data);
+
+      // Handle successful response
+      if (response.data?.success && response.data.deposit_detected) {
+        console.log('🎉 Deposit detected!', response.data);
+        
+        // Stop polling immediately when deposit is found
+        console.log('🛑 Stopping polling - deposit found!');
+        stopPolling();
+        
+        // Set deposit as completed to prevent further polling
+        setIsDepositStarted(false);
+        
+        // Show success notification with actual values
+        toast({
+          title: "🎉 Deposit Detected!",
+          description: `USDC ${response.data.usdc_amount} deposited and ${response.data.usdl_amount} USDL credited`,
+        });
+        
+        // Navigate to success page with actual values
+        navigate("/deposit/success", {
+          state: {
+            amount: response.data.usdc_amount,
+            pointsEarned: response.data.usdl_amount, // Using USDL amount as points
+            pointsValue: (response.data.usdl_amount * response.data.exchange_rate).toFixed(2),
+            newBalance: response.data.new_balance,
+            transactionHash: response.data.transaction_hash,
+            blockNumber: response.data.block_number || null,
+            gasUsed: response.data.gas_used || null,
+            referralInfo: null,
+            date: new Date(response.data.timestamp).toLocaleDateString('en-US', {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            }),
+            senderAddress: response.data.sender_address,
+            recipientAddress: response.data.recipient_address,
+            exchangeRate: response.data.exchange_rate
+          }
+        });
+        
+        // Update tracking state to completed
+        const trackingState: TrackingState = {
+          status: 'completed',
+          externalWalletAddress,
+          startedAt: new Date().toISOString(),
+          expiresAt: new Date().toISOString()
+        };
+        saveTrackingState(trackingState);
+        setIsDepositStarted(false);
+        
+      } else if (response.data?.success && !response.data.deposit_detected) {
+        // No deposit found yet, continue polling
+        console.log('⏳ No deposit detected yet:', response.data.message);
+      } else {
+        // API returned error
+        console.log('❌ API error:', response.data?.message || 'Unknown error');
+      }
+    } catch (error) {
+      console.error('❌ Deposit tracking failed:', error);
+      // Don't show error toast for polling failures to avoid spam
+    }
+  };
+
+  // Start polling when deposit tracking begins
+  const startPolling = () => {
+    // Don't start polling if deposit is already completed
+    if (!isDepositStarted) {
+      console.log('🛑 Cannot start polling - deposit tracking not active');
+      return;
+    }
+    
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+    }
+    
+    console.log('🔄 Starting deposit polling every 50 seconds...');
+    const interval = setInterval(pollDepositStatus, 50000); // 50 seconds
+    setPollingInterval(interval);
+    
+    // Also call immediately
+    pollDepositStatus();
+  };
+
+  // Stop polling
+  const stopPolling = () => {
+    if (pollingInterval) {
+      console.log('🛑 Stopping deposit polling...');
+      clearInterval(pollingInterval);
+      setPollingInterval(null);
+      console.log('✅ Polling stopped successfully');
+    } else {
+      console.log('ℹ️ No active polling to stop');
+    }
+  };
+
   // Handle Start Deposit button click
   const handleStartDeposit = () => {
-    if (!isValidAddress || !externalWalletAddress || !selectedAmount) {
+    if (!isValidAddress || !externalWalletAddress) {
       toast({
         title: "Missing Information",
-        description: "Please enter a valid wallet address and select an amount",
+        description: "Please enter a valid wallet address",
         variant: "destructive",
       });
       return;
@@ -311,7 +466,6 @@ const DepositExternal = () => {
     const trackingState: TrackingState = {
       status: 'tracking',
       externalWalletAddress,
-      selectedAmount,
       startedAt: now.toISOString(),
       expiresAt: expiresAt.toISOString()
     };
@@ -326,69 +480,13 @@ const DepositExternal = () => {
       description: "Send USDC to the address below within 10 minutes",
     });
 
-    // TODO: Call backend API to start deposit tracking
-    /*
-    try {
-      const response = await axios.post('/api/deposit/external/start', {
-        user_id: user.id,
-        external_wallet_address: externalWalletAddress,
-        amount: selectedAmount,
-        receiving_address: RECEIVING_ADDRESS
-      }, {
-        headers: {
-          'X-Privy-User-Id': user.id,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.data.success) {
-        // Backend will track transaction for 10 minutes
-        console.log('✅ Deposit tracking started:', response.data);
-      }
-    } catch (error) {
-      console.error("❌ Failed to start deposit tracking:", error);
-      // Clear localStorage if API fails
-      clearTrackingState();
-      setIsDepositStarted(false);
-      
-      toast({
-        title: "Error",
-        description: "Failed to start deposit. Please try again.",
-        variant: "destructive",
-      });
-    }
-    */
+    // Start polling for deposit status every 50 seconds
+    startPolling();
   };
 
-  // ===== SIMULATE DEPOSIT SUCCESS (for testing) =====
-  // Remove this in production - backend will handle detection
-  const handleDepositSuccess = () => {
-    // Clear tracking state
-    clearTrackingState();
-
-    // Navigate to success page with data
-    navigate("/deposit/success", {
-      state: {
-        amount: selectedAmount,
-        pointsEarned: 100, // Replace with actual from API
-        pointsValue: (100 * 4.005).toFixed(2),
-        newBalance: 500, // Replace with actual from API
-        transactionHash: "0x123456...", // Replace with actual from API
-        blockNumber: 12345678,
-        gasUsed: 45000,
-        referralInfo: null,
-        date: new Date().toLocaleDateString('en-US', {
-          weekday: 'short',
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric'
-        })
-      }
-    });
-  };
 
   // Check if CTA button should be enabled
-  const isCTAEnabled = isValidAddress && externalWalletAddress.length > 0 && selectedAmount !== null;
+  const isCTAEnabled = isValidAddress && externalWalletAddress.length > 0;
 
   // Show loading state while restoring
   if (isRestoringState) {
@@ -550,34 +648,6 @@ const DepositExternal = () => {
         </div>
       </motion.div>
 
-      {/* Choose Amount */}
-      {!isDepositStarted && (
-        <motion.div
-          className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <h3 className="text-golden-light text-lg font-semibold mb-4">Choose Amount:</h3>
-          <div className="grid grid-cols-4 gap-3">
-            {amounts.map((amount) => (
-              <button
-                key={amount.value}
-                onClick={() => setSelectedAmount(amount.value)}
-                disabled={isDepositStarted}
-                className={`bg-[#D4B679]/90 hover:bg-[#D4B679] rounded-xl p-4 flex flex-col items-center justify-center transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${selectedAmount === amount.value ? 'ring-2 ring-golden-light scale-105' : ''
-                  }`}
-              >
-                <span className="text-xl font-bold text-background">${amount.value}</span>
-                <span className="text-xs text-background/70 mt-1">(~{amount.points}pt)</span>
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-golden-light/60 text-center mt-3">
-            Select amount to track your deposit
-          </p>
-        </motion.div>
-      )}
 
       {/* Receiving Address Section - Shown after form filled or deposit started */}
       {(isValidAddress || isDepositStarted) && (
@@ -725,7 +795,6 @@ const DepositExternal = () => {
           </Button>
           <p className="text-xs text-golden-light/60 text-center mt-2">
             {!isCTAEnabled && !isValidAddress && "Enter a valid wallet address to continue"}
-            {!isCTAEnabled && isValidAddress && !selectedAmount && "Select an amount to continue"}
           </p>
         </motion.div>
       )}
@@ -751,25 +820,11 @@ const DepositExternal = () => {
               <p className="text-xs text-golden-light/60">
                 From: <span className="text-golden-light font-mono">{formatAddress(externalWalletAddress)}</span>
               </p>
-              {selectedAmount && (
-                <p className="text-xs text-golden-light/60 mt-1">
-                  Expected Amount: <span className="text-golden-light font-semibold">${selectedAmount} USDC</span>
-                </p>
-              )}
             </div>
             <p className="text-xs text-golden-light/60 mb-4">
               We'll automatically detect your transaction and credit your points
             </p>
 
-            {/* TEST BUTTON - Remove in production */}
-            <Button
-              onClick={handleDepositSuccess}
-              variant="outline"
-              size="sm"
-              className="border-green-500/30 text-green-500 hover:bg-green-500/10"
-            >
-              🧪 Simulate Success (Testing Only)
-            </Button>
           </div>
         </motion.div>
       )}
@@ -815,12 +870,6 @@ const DepositExternal = () => {
                 <p className="text-golden-light font-mono text-sm break-all">
                   {externalWalletAddress}
                 </p>
-                {selectedAmount && (
-                  <>
-                    <p className="text-xs text-golden-light/60 mt-3 mb-1">Amount:</p>
-                    <p className="text-golden-light font-semibold">${selectedAmount} USDC</p>
-                  </>
-                )}
               </div>
 
               <div className="bg-red-500/10 border border-red-400/30 rounded-lg p-3 mb-6">

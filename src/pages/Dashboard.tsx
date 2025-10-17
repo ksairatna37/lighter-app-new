@@ -15,6 +15,7 @@ import timer from "@/assets/timer.png";
 import { useWallet, useWalletStore } from '@/hooks/useWallet';
 import axios from "axios";
 import { toast } from "@/hooks/use-toast";
+import { generateAuthToken } from '@/utils/authGenerator';
 
 // Interface for point price data from API
 interface LighterPointData {
@@ -318,6 +319,7 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
   const isWaitingEndingSoon = !isActiveBonus && timeRemaining > 0 && timeRemaining <= 1800; // 30 minutes
 
 
+
   // Fetch user balance data from backend
   const fetchUserBalance = async () => {
     if (!userId || !user?.id) {
@@ -328,14 +330,19 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
     setBalanceLoading(true);
 
     try {
+      // Generate auth token using existing auth_generator.js
+      const endpoint = `/api/balance/${userId}`;
+      const authToken = generateAuthToken(endpoint);
 
-      const response = await axios.post("/api/get_referal_code", {
-        id: userId,
-        privy_id: user.id
+      const response = await axios.get(`/api/balance/${userId}`, {
+        headers: {
+          'X-Privy-User-Id': user.id,
+          'Authorization': `Bearer ${authToken}`
+        }
       });
 
 
-      // NEW: Handle the updated API response structure
+      // Handle the updated API response structure
       if (response.data && response.data.success !== false) {
         const data = response.data;
 
@@ -361,7 +368,6 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
         };
         localStorage.setItem(user.id, JSON.stringify(updatedUserData));
 
-
       } else {
         throw new Error(response.data?.error || "Failed to fetch balance data");
       }
@@ -383,7 +389,15 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
     setPriceLoading(true);
 
     try {
-      const response = await axios.get("/api/points/price");
+      // Generate auth token using existing auth_generator.js
+      const endpoint = "/api/points/price";
+      const authToken = generateAuthToken(endpoint);
+
+      const response = await axios.get("/api/points/price", {
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
 
       if (response.data && response.data.data) {
         const priceData = {
@@ -517,9 +531,23 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
     try {
       const limit = 100;
 
+      // Generate auth tokens for both endpoints using existing auth_generator.js
+      const pointsEndpoint = `/api/points/history/${userId}`;
+      const transactionsEndpoint = `/api/transactions/${userId}`;
+      const pointsAuthToken = generateAuthToken(pointsEndpoint);
+      const transactionsAuthToken = generateAuthToken(transactionsEndpoint);
+
       const [pointsResponse, transactionsResponse] = await Promise.all([
-        axios.get(`/api/points/history/${userId}?limit=${limit}`),
-        axios.get(`/api/transactions/${userId}?limit=${limit}`)
+        axios.get(`/api/points/history/${userId}?limit=${limit}`, {
+          headers: {
+            'Authorization': `Bearer ${pointsAuthToken}`
+          }
+        }),
+        axios.get(`/api/transactions/${userId}?limit=${limit}`, {
+          headers: {
+            'Authorization': `Bearer ${transactionsAuthToken}`
+          }
+        })
       ]);
 
 

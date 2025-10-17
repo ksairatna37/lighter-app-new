@@ -15,6 +15,7 @@ import sell from "@/assets/sell.png";
 import { useWallet, useWalletStore } from "@/hooks/useWallet";
 import { usePrivy } from "@privy-io/react-auth";
 import axios from "axios";
+import { generateAuthToken } from "@/utils/authGenerator";
 import BuySuccessModal from './BuySuccessModal';
 import SellSuccessModal from './SellSuccessModal';
 
@@ -178,11 +179,15 @@ const Trade = () => {
         expected_points: expected_points,
       };
 
+      const endpoint = '/api/points/buy';
+      const authToken = generateAuthToken(endpoint);
+
       const headers = {
         'X-Privy-User-Id': usersupabase,
         'X-Wallet-Address': address,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'Authorization': `Bearer ${authToken}`
       };
 
       const response = await axios.post('/api/points/buy', requestData, { headers });
@@ -273,11 +278,15 @@ const Trade = () => {
         expected_usdl: expected_usdl,
       };
 
+      const endpoint = '/api/points/sell';
+      const authToken = generateAuthToken(endpoint);
+
       const headers = {
         'X-Privy-User-Id': usersupabase,
         'X-Wallet-Address': address,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'Authorization': `Bearer ${authToken}`
       };
 
       const response = await axios.post('/api/points/sell', requestData, { headers });

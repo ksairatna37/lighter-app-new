@@ -14,6 +14,7 @@ import share from "@/assets/Share.png";
 import { useWallet } from "@/hooks/useWallet";
 import { usePrivy } from "@privy-io/react-auth";
 import axios from "axios";
+import { generateAuthToken } from "@/utils/authGenerator";
 
 const Referrals = () => {
   const [referralCode, setReferralCode] = useState("");
@@ -38,8 +39,15 @@ const Referrals = () => {
       setBalanceLoading(true);
 
       try {
+        const endpoint = '/api/check_user_exist';
+        const authToken = generateAuthToken(endpoint);
+
         const response = await axios.post('/api/check_user_exist', {
           privy_id: user.id
+        }, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
         });
 
         if (response.data && response.data.exists === 'yes') {

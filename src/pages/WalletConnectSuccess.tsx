@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { generateAuthToken } from "@/utils/authGenerator";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -82,8 +83,15 @@ const WalletConnectSuccess = () => {
     setIsChecking(true);
 
     try {
+      const endpoint = '/api/check_user_exist';
+      const authToken = generateAuthToken(endpoint);
+
       const response = await axios.post('/api/check_user_exist', { 
         privy_id: user.id 
+      }, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
       });
 
 

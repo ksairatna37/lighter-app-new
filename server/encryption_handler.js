@@ -112,7 +112,7 @@ async function getAccountData(userId, token) {
   try {
     const response = await axios.get(
       `${API_BASE_URL}/api/account/${userId}`,
-      { headers: { Authorization: token } }
+      { headers: { Authorization: `Bearer ${token}` } }
     );
     const accountData = response.data.data || response.data;
     return accountData;
@@ -125,7 +125,7 @@ async function getEncryptedPrivateKey(userId, token) {
   try {
     const response = await axios.get(
       `${API_BASE_URL}/api/account/${userId}/encrypted`,
-      { headers: { Authorization: token } }
+      { headers: { Authorization: `Bearer ${token}` } }
     );
     const encryptedData = response.data.data || response.data.encrypted_private_key;
     if (!encryptedData) throw new Error('Encrypted private key not found in API response');

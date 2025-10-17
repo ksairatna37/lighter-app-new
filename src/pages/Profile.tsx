@@ -13,7 +13,9 @@ import withdraw from "@/assets/withdraw.png";
 import { useWallet, useWalletStore } from '@/hooks/useWallet';
 import { useToast } from "@/hooks/use-toast";
 import { usePrivy } from '@privy-io/react-auth';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+import { generateAuthToken } from '@/utils/authGenerator';
 // ✅ FIXED: Import the function (not a class)
 import { retrievePrivateKey } from '../../server/encryption_handler.js';
 
@@ -82,9 +84,54 @@ const Profile = () => {
   const [showPrivateKeyModal, setShowPrivateKeyModal] = useState(false);
   const [privateKey, setPrivateKey] = useState('');
   const [isLoadingPrivateKey, setIsLoadingPrivateKey] = useState(false);
+  const [accountData, setAccountData] = useState(null);
+  const [isLoadingAccount, setIsLoadingAccount] = useState(false);
+
+  // Fetch user account data from backend
+  const fetchUserAccount = async () => {
+    if (!localdata?.id || !user?.id) {
+      console.warn("User ID or Privy ID not found");
+      return;
+    }
+
+    setIsLoadingAccount(true);
+
+    try {
+      const endpoint = `/api/account/${localdata.id}`;
+      const authToken = generateAuthToken(endpoint);
+
+      const response = await axios.get(`/api/account/${localdata.id}`, {
+        headers: {
+          'X-Privy-User-Id': user.id,
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
+
+      if (response.data && response.data.success !== false) {
+        console.log('Account data fetched successfully:', response.data);
+        setAccountData(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching account data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch account data",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingAccount(false);
+    }
+  };
 
   // Memoize computed values to prevent unnecessary re-calculations
   const isAuthenticated = useMemo(() => ready && authenticated, [ready, authenticated]);
+
+  // Fetch account data when component mounts
+  useEffect(() => {
+    if (isAuthenticated && localdata?.id) {
+      fetchUserAccount();
+    }
+  }, [isAuthenticated, localdata?.id]);
 
   const hasEmbeddedWallet = useMemo(() => {
     if (!user?.linkedAccounts) return false;
@@ -194,8 +241,9 @@ const Profile = () => {
     try {
       console.log('🔐 Starting private key export...');
 
-      // Get authentication token
-      const authToken = localStorage.getItem('authToken') || '';
+      // Generate fresh authentication token
+      const endpoint = `/api/account/${localdata.id}`;
+      const authToken = generateAuthToken(endpoint);
 
       // ✅ NEW: Call the function directly (not as a class constructor)
       const result = await retrievePrivateKey(localdata.id, authToken);

@@ -6,6 +6,7 @@ import { ArrowLeft, RefreshCw, TrendingUp, TrendingDown, ExternalLink, Filter, C
 import { useState, useEffect } from "react";
 import { usePrivy } from '@privy-io/react-auth';
 import axios from "axios";
+import { generateAuthToken } from "@/utils/authGenerator";
 import { toast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
 import { Button } from "@/components/ui/button";
@@ -94,10 +95,20 @@ const History = () => {
     try {
       const limit = 100;
 
+      // Generate auth tokens for both endpoints
+      const pointsEndpoint = `/api/points/history/${userId}`;
+      const transactionsEndpoint = `/api/transactions/${userId}`;
+      const pointsAuthToken = generateAuthToken(pointsEndpoint);
+      const transactionsAuthToken = generateAuthToken(transactionsEndpoint);
+
       // Fetch both APIs in parallel
       const [pointsResponse, transactionsResponse] = await Promise.all([
-        axios.get(`/api/points/history/${userId}?limit=${limit}`),
-        axios.get(`/api/transactions/${userId}?limit=${limit}`)
+        axios.get(`/api/points/history/${userId}?limit=${limit}`, {
+          headers: { 'Authorization': `Bearer ${pointsAuthToken}` }
+        }),
+        axios.get(`/api/transactions/${userId}?limit=${limit}`, {
+          headers: { 'Authorization': `Bearer ${transactionsAuthToken}` }
+        })
       ]);
 
 

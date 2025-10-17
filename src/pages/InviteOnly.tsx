@@ -10,6 +10,7 @@ import slice from "@/assets/Slice.png";
 import { useWallet, useWalletStore } from '@/hooks/useWallet';
 import { usePrivy } from '@privy-io/react-auth';
 import axios from 'axios';
+import { generateAuthToken } from "@/utils/authGenerator";
 
 const InviteOnly = () => {
   const navigate = useNavigate();
@@ -60,11 +61,14 @@ const InviteOnly = () => {
       referral_code: inviteCode.trim(),
     };
 
+    const endpoint = '/api/register_new_user';
+    const authToken = generateAuthToken(endpoint);
+
     const headers = {
       'Content-Type': 'application/json',
-      'Accept': 'application/json'
+      'Accept': 'application/json',
+      'Authorization': `Bearer ${authToken}`
     };
-
 
     const response = await axios.post('/api/register_new_user', requestData, {
       headers: headers
@@ -187,7 +191,12 @@ const InviteOnly = () => {
   // Test server connection
   const testServerConnection = async () => {
     try {
-      const response = await axios.get('/api/health');
+      const endpoint = '/api/health';
+      const authToken = generateAuthToken(endpoint);
+
+      const response = await axios.get('/api/health', {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
       toast({
         title: "Server Connected",
         description: "Server is running and accessible",

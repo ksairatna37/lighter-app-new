@@ -6,7 +6,6 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import cors from 'cors';
-import { generateAuthToken } from './auth_generator.js';
 
 // Base URL for deployed backend
 const BASE_URL = process.env.BASE_URL || 'https://lighter-farm-backend.thankfuldesert-772ce932.westus.azurecontainerapps.io';
@@ -33,66 +32,17 @@ app.use(cors({
 app.use(express.json());
 
 // ============================================================================
-// 🚀 OPTIMIZATION 1: Token Cache with TTL (Time To Live)
+// 🚀 PROXY SERVER - Pass through auth tokens from frontend
 // ============================================================================
-const tokenCache = new Map();
-const TOKEN_TTL = 50000; // 50 seconds (tokens valid for ~60s, use 50s to be safe)
 
-function getCachedToken(endpoint) {
-  const cached = tokenCache.get(endpoint);
-  if (cached && Date.now() < cached.expiresAt) {
-    return cached.token;
-  }
-  tokenCache.delete(endpoint);
-  return null;
-}
-
-function setCachedToken(endpoint, token) {
-  tokenCache.set(endpoint, {
-    token,
-    expiresAt: Date.now() + TOKEN_TTL
-  });
-}
-
-// Clean up expired tokens every minute
-setInterval(() => {
-  const now = Date.now();
-  for (const [endpoint, data] of tokenCache.entries()) {
-    if (now >= data.expiresAt) {
-      tokenCache.delete(endpoint);
-    }
-  }
-}, 60000);
-
-// ============================================================================
-// 🚀 OPTIMIZATION 2: Reusable Auth Token Generator
-// ============================================================================
-function getAuthToken(endpoint) {
-  // Check cache first
-  let token = getCachedToken(endpoint);
-  if (token) {
-    if (!IS_PRODUCTION) console.log(`🎯 Using cached token for ${endpoint}`);
-    return token;
-  }
-
-  // Generate new token
-  try {
-    token = generateAuthToken(endpoint);
-    setCachedToken(endpoint, token);
-    if (!IS_PRODUCTION) console.log(`🔐 Generated new token for ${endpoint}`);
-    return token;
-  } catch (error) {
-    console.error(`❌ Failed to generate auth token for ${endpoint}:`, error.message);
-    return null;
-  }
-}
 
 // ============================================================================
 // 🚀 OPTIMIZATION 3: Middleware for Auth Headers
 // ============================================================================
 function addAuthHeader(backendEndpoint) {
   return (req, res, next) => {
-    req.authToken = getAuthToken(backendEndpoint);
+    // Pass through the auth token from the frontend
+    req.authToken = req.headers['authorization']?.replace('Bearer ', '');
     next();
   };
 }
@@ -244,6 +194,7 @@ function handleError(error, req, res) {
 // ============================================================================
 // API ROUTES - OPTIMIZED
 // ============================================================================
+
 // POST /api/track_usdc_deposit - IMPROVED WITH BETTER LOGGING
 app.post('/api/track_usdc_deposit', async (req, res) => {
   try {
@@ -282,11 +233,14 @@ app.post('/api/track_usdc_deposit', async (req, res) => {
 
     // Build endpoint
     const endpoint = '/api/track_usdc_deposit';
-    const authToken = getAuthToken(endpoint);
+    const authToken = req.headers['authorization']?.replace('Bearer ', '');
 
-    // Check if auth token was generated
+    // Check if auth token was provided
     if (!authToken) {
-      throw new Error('Failed to generate auth token for endpoint: ' + endpoint);
+      return res.status(401).json({
+        success: false,
+        error: 'Authorization token required'
+      });
     }
 
     // Forward to backend with auth
@@ -341,7 +295,7 @@ app.post('/api/deposit', async (req, res) => {
         'X-Privy-User-Id': privyUserId,
         ...(walletAddress && { 'X-Wallet-Address': walletAddress })
       },
-      authToken: getAuthToken('/deposit')
+      authToken: req.headers['authorization']?.replace('Bearer ', '')
     });
 
     return res.status(result.status).json(result.data);
@@ -364,7 +318,7 @@ app.post('/api/register_new_user', async (req, res) => {
       method: 'POST',
       body: { privy_id, referral_code },
       headers: { 'X-Privy-User-Id': privy_id },
-      authToken: getAuthToken('/register_new_user')
+      authToken: req.headers['authorization']?.replace('Bearer ', '')
     });
 
     return res.status(result.status).json(result.data);
@@ -401,7 +355,7 @@ app.post('/api/stake', async (req, res) => {
         'X-Privy-User-Id': privyUserId,
         ...(walletAddress && { 'X-Wallet-Address': walletAddress })
       },
-      authToken: getAuthToken('/api/stake')
+      authToken: req.headers['authorization']?.replace('Bearer ', '')
     });
 
     return res.status(result.status).json(result.data);
@@ -414,10 +368,19 @@ app.post('/api/stake', async (req, res) => {
 // GET /api/points/
 app.get('/api/points/price', async (req, res) => {
   try {
+    const authToken = req.headers['authorization']?.replace('Bearer ', '');
+
+    if (!authToken) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authorization token required'
+      });
+    }
+
     const result = await forwardToBackend({
       endpoint: '/api/points/price',
       method: 'GET',
-      authToken: getAuthToken('/api/points/price')
+      authToken: authToken
     });
 
     return res.status(result.status).json(result.data);
@@ -454,7 +417,7 @@ app.post('/api/unstake', async (req, res) => {
         'X-Privy-User-Id': privyUserId,
         ...(walletAddress && { 'X-Wallet-Address': walletAddress })
       },
-      authToken: getAuthToken('/api/unstake')
+      authToken: req.headers['authorization']?.replace('Bearer ', '')
     });
 
     return res.status(result.status).json(result.data);
@@ -487,7 +450,7 @@ app.post('/api/points/buy', async (req, res) => {
         'X-Privy-User-Id': privyUserId,
         ...(walletAddress && { 'X-Wallet-Address': walletAddress })
       },
-      authToken: getAuthToken('/api/points/buy')
+      authToken: req.headers['authorization']?.replace('Bearer ', '')
     });
 
     return res.status(result.status).json(result.data);
@@ -520,7 +483,7 @@ app.post('/api/points/sell', async (req, res) => {
         'X-Privy-User-Id': privyUserId,
         ...(walletAddress && { 'X-Wallet-Address': walletAddress })
       },
-      authToken: getAuthToken('/api/points/sell')
+      authToken: req.headers['authorization']?.replace('Bearer ', '')
     });
 
     return res.status(result.status).json(result.data);
@@ -551,7 +514,7 @@ app.get('/api/transactions/:user_id', async (req, res) => {
     const result = await forwardToBackend({
       endpoint,
       method: 'GET',
-      authToken: getAuthToken(`/api/transactions/${user_id}`)
+      authToken: req.headers['authorization']?.replace('Bearer ', '')
     });
 
     return res.status(result.status).json(result.data);
@@ -586,7 +549,7 @@ app.get('/api/points/history/:user_id', async (req, res) => {
     const result = await forwardToBackend({
       endpoint,
       method: 'GET',  // ✅ GET method (no body)
-      authToken: getAuthToken(`/api/points/history/${user_id}`)
+      authToken: req.headers['authorization']?.replace('Bearer ', '')
     });
 
     return res.status(result.status).json(result.data);
@@ -600,6 +563,7 @@ app.get('/api/points/history/:user_id', async (req, res) => {
 app.get('/api/account/:user_id', async (req, res) => {
   try {
     const { user_id } = req.params;
+    const authToken = req.headers['authorization']?.replace('Bearer ', '');
 
     // Validation
     if (!user_id) {
@@ -609,14 +573,21 @@ app.get('/api/account/:user_id', async (req, res) => {
       });
     }
 
+    if (!authToken) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authorization token required'
+      });
+    }
+
     // Build endpoint
     const endpoint = `/api/account/${user_id}`;
 
-    // Forward to backend with auth
+    // Forward to backend with client-provided auth token
     const result = await forwardToBackend({
       endpoint,
       method: 'GET',
-      authToken: getAuthToken(endpoint)
+      authToken: authToken
     });
 
     return res.status(result.status).json(result.data);
@@ -646,7 +617,7 @@ app.get('/api/account/:user_id/encrypted', async (req, res) => {
     const result = await forwardToBackend({
       endpoint,
       method: 'GET',
-      authToken: getAuthToken(endpoint)
+      authToken: req.headers['authorization']?.replace('Bearer ', '')
     });
 
     return res.status(result.status).json(result.data);
@@ -668,7 +639,7 @@ app.post('/api/check_user_exist', async (req, res) => {
       endpoint,
       method: 'GET',
       headers: { 'X-Privy-User-Id': privy_id },
-      authToken: getAuthToken(endpoint)
+      authToken: req.headers['authorization']?.replace('Bearer ', '')
     });
 
     if (result.data.success === true) {
@@ -690,19 +661,20 @@ app.post('/api/check_user_exist', async (req, res) => {
   }
 });
 
-// POST /api/get_referal_code
-app.post('/api/get_referal_code', async (req, res) => {
+// GET /api/balance/:user_id
+app.get('/api/balance/:user_id', async (req, res) => {
   try {
-    const { id, privy_id } = req.body;
+    const { user_id } = req.params;
+    const authToken = req.headers['authorization']?.replace('Bearer ', '');
 
-    if (!id) return res.status(400).json({ success: false, error: 'User ID is required' });
-    if (!privy_id) return res.status(400).json({ success: false, error: 'Privy ID is required' });
+    if (!user_id) return res.status(400).json({ success: false, error: 'User ID is required' });
+    if (!authToken) return res.status(401).json({ success: false, error: 'Authorization token required' });
 
-    const endpoint = `/api/balance/${id}`;
+    const endpoint = `/api/balance/${user_id}`;
     const result = await forwardToBackend({
       endpoint,
       method: 'GET',
-      authToken: getAuthToken(endpoint)
+      authToken: authToken
     });
 
     // Handle authentication errors

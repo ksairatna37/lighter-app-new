@@ -13,6 +13,7 @@ import slice from "@/assets/Slice.png";
 import { useWallet, useWalletStore } from '@/hooks/useWallet';
 import { getAccessToken, usePrivy } from "@privy-io/react-auth";
 import axios from "axios";
+import { generateAuthToken } from "@/utils/authGenerator";
 import UnstakeSuccessModal from './UnstakeSuccessModal';
 
 // Types for the unstake response
@@ -141,14 +142,16 @@ const Unstake = () => {
             };
 
             // Step 3: Prepare headers (use Supabase user ID as confirmed by your testing)
+            const endpoint = '/api/unstake';
+            const authToken = generateAuthToken(endpoint);
+
             const headers = {
                 'X-Privy-User-Id': usersupabase, // Supabase user ID
                 'X-Wallet-Address': address,
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
+                'Authorization': `Bearer ${authToken}`
             };
-
-
 
             const response = await axios.post('/api/unstake', requestData, { headers });
 

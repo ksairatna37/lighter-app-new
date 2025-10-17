@@ -13,6 +13,7 @@ import slice from "@/assets/Slice.png";
 import { useWallet, useWalletStore } from '@/hooks/useWallet';
 import { usePrivy } from '@privy-io/react-auth';
 import axios from 'axios';
+import { generateAuthToken } from "@/utils/authGenerator";
 import StakeSuccessModal from "./StakeSuccessModal";
 import UnstakeSuccessModal from './UnstakeSuccessModal';
 
@@ -150,11 +151,15 @@ const Farm = () => {
         duration_days: 0,
       };
 
+      const endpoint = '/api/stake';
+      const authToken = generateAuthToken(endpoint);
+
       const headers = {
         'X-Privy-User-Id': usersupabase,
         'X-Wallet-Address': address,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'Authorization': `Bearer ${authToken}`
       };
 
       const response = await axios.post('/api/stake', requestData, { headers });
@@ -285,11 +290,15 @@ const Farm = () => {
         force_unlock: "false",
       };
 
+      const endpoint = '/api/unstake';
+      const authToken = generateAuthToken(endpoint);
+
       const headers = {
         'X-Privy-User-Id': usersupabase,
         'X-Wallet-Address': address,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'Authorization': `Bearer ${authToken}`
       };
 
       const response = await axios.post('/api/unstake', requestData, { headers });
