@@ -18,12 +18,17 @@ const app = express();
 app.use(cors({
   origin: [
     'https://base.app',
-    'app-lighterfarm-hxgcccdkf8c5h9gw.centralindia-01.azurewebsites.net',
+    'https://app-lighterfarm-hxgcccdkf8c5h9gw.centralindia-01.azurewebsites.net',
     'http://localhost:3000',
     'http://localhost:8080/',
     "https://base.org",
     "https://*.base.org"
-  ]
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Privy-User-Id', 'X-Wallet-Address'],
+  exposedHeaders: ['Content-Length', 'X-Request-Id'],
+  maxAge: 86400  // 24 hours
 }))
 app.use(express.json());
 
@@ -105,7 +110,7 @@ async function forwardToBackend(options) {
   } = options;
 
   const backendUrl = `${BASE_URL}${endpoint}`;
-  
+
   // Log request details (only in development)
   if (!IS_PRODUCTION) {
     console.log(`\n📤 Forwarding request to backend:`);
@@ -137,10 +142,10 @@ async function forwardToBackend(options) {
 
   try {
     const response = await fetch(backendUrl, fetchOptions);
-    
+
     // Get response text first
     const responseText = await response.text();
-    
+
     // Log response details (only in development)
     if (!IS_PRODUCTION) {
       console.log(`📥 Backend response:`);
@@ -152,7 +157,7 @@ async function forwardToBackend(options) {
     // Try to parse as JSON
     let data;
     const contentType = response.headers.get('content-type');
-    
+
     if (contentType && contentType.includes('application/json')) {
       try {
         data = JSON.parse(responseText);
@@ -167,7 +172,7 @@ async function forwardToBackend(options) {
       console.error(`   Content-Type: ${contentType || 'NONE'}`);
       console.error(`   Status: ${response.status}`);
       console.error(`   Response text:`, responseText);
-      
+
       throw new Error(`Backend returned non-JSON response (${response.status}): ${responseText.substring(0, 100)}`);
     }
 
@@ -179,12 +184,12 @@ async function forwardToBackend(options) {
 
   } catch (fetchError) {
     console.error(`❌ Fetch error:`, fetchError.message);
-    
+
     // Re-throw with more context
     if (fetchError.message.includes('fetch failed')) {
       throw new Error(`Cannot connect to backend at ${backendUrl}`);
     }
-    
+
     throw fetchError;
   }
 }
