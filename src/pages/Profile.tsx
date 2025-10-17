@@ -198,7 +198,7 @@ const Profile = () => {
       const authToken = localStorage.getItem('authToken') || '';
 
       // ✅ NEW: Call the function directly (not as a class constructor)
-      const result = await retrievePrivateKey(localdata.id, authToken);
+      const result = await retrievePrivateKey(localdata.id);
 
       if (result.success && result.privateKey) {
         console.log('✅ Private key obtained successfully');

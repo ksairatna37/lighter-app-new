@@ -14,6 +14,7 @@ import { useWallet, useWalletStore } from '@/hooks/useWallet';
 import { getAccessToken, usePrivy } from "@privy-io/react-auth";
 import axios from "axios";
 import UnstakeSuccessModal from './UnstakeSuccessModal';
+import apiClient from "@/lib/apiClient";
 
 // Types for the unstake response
 interface UnstakeSuccessData {
@@ -150,7 +151,7 @@ const Unstake = () => {
 
 
 
-            const response = await axios.post('/api/unstake', requestData, { headers });
+            const response = await apiClient.post('/api/unstake', requestData, { headers });
 
             if (response.status === 200 && response.data?.success) {
                 // Store the success data and show modal instead of toast

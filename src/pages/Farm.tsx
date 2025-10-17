@@ -15,6 +15,7 @@ import { usePrivy } from '@privy-io/react-auth';
 import axios from 'axios';
 import StakeSuccessModal from "./StakeSuccessModal";
 import UnstakeSuccessModal from './UnstakeSuccessModal';
+import apiClient from "@/lib/apiClient";
 
 
 interface StakeSuccessData {
@@ -157,7 +158,7 @@ const Farm = () => {
         'Accept': 'application/json',
       };
 
-      const response = await axios.post('/api/stake', requestData, { headers });
+      const response = await apiClient.post('/api/stake', requestData, { headers });
 
       if (response.status === 200 && response.data?.success) {
         setStakeSuccessData(response.data.data);
@@ -292,7 +293,7 @@ const Farm = () => {
         'Accept': 'application/json',
       };
 
-      const response = await axios.post('/api/unstake', requestData, { headers });
+      const response = await apiClient.post('/api/unstake', requestData, { headers });
 
       if (response.status === 200 && response.data?.success) {
         setUnstakeSuccessData(response.data.data);

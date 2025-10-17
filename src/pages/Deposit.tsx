@@ -18,6 +18,7 @@ import { useWallet, useWalletStore } from '@/hooks/useWallet';
 import { usePrivy } from "@privy-io/react-auth";
 import axios from "axios";
 import { ethers } from "ethers";
+import apiClient from "@/lib/apiClient";
 
 const Deposit = () => {
   const [depositAddress] = useState("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913");
@@ -104,7 +105,7 @@ const Deposit = () => {
     setBalanceLoading(true);
 
     try {
-      const response = await axios.post('/api/check_user_exist', {
+      const response = await apiClient.post('/api/check_user_exist', {
         privy_id: user.id
       });
 
@@ -200,7 +201,7 @@ const Deposit = () => {
     setDepositLoading(true);
 
     try {
-      const response = await axios.post('/api/deposit',
+      const response = await apiClient.post('/api/deposit',
         {
           id: userData.id,
           amount: selectedAmount

@@ -9,6 +9,7 @@ import axios from "axios";
 import { toast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
 import { Button } from "@/components/ui/button";
+import apiClient from "@/lib/apiClient";
 
 // Interface for point transaction data
 interface PointsTransaction {
@@ -96,8 +97,8 @@ const History = () => {
 
       // Fetch both APIs in parallel
       const [pointsResponse, transactionsResponse] = await Promise.all([
-        axios.get(`/api/points/history/${userId}?limit=${limit}`),
-        axios.get(`/api/transactions/${userId}?limit=${limit}`)
+        apiClient.get(`/api/points/history/${userId}?limit=${limit}`),
+        apiClient.get(`/api/transactions/${userId}?limit=${limit}`)
       ]);
 
 

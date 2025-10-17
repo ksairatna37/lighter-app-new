@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import { Container } from "@/components/layout/Container";
 import { BottomNavigation } from "@/components/layout/BottomNavigation";
@@ -13,7 +14,7 @@ import and from "@/assets/and.png";
 import share from "@/assets/Share.png";
 import { useWallet } from "@/hooks/useWallet";
 import { usePrivy } from "@privy-io/react-auth";
-import axios from "axios";
+import apiClient from "@/lib/apiClient";
 
 const Referrals = () => {
   const [referralCode, setReferralCode] = useState("");
@@ -24,9 +25,13 @@ const Referrals = () => {
   const [referral_reward, setreferralreward] = useState(0);
   const [balanceLoading, setBalanceLoading] = useState<boolean>(false);
 
+
   useEffect(() => {
     const fetchReferral = async () => {
-      if (!user?.id) return;
+      if (!user?.id) {
+        console.log('⚠️ No user ID, skipping referral fetch');
+        return;
+      }
 
       // Get referral from localStorage
       const stored = localStorage.getItem(user.id);
@@ -34,27 +39,67 @@ const Referrals = () => {
 
       if (localdata?.referral_code) {
         setReferralCode(localdata.referral_code);
+        console.log('📋 Loaded referral code from localStorage');
       }
+
       setBalanceLoading(true);
 
       try {
-        const response = await axios.post('/api/check_user_exist', {
+        console.log('📡 Fetching referral data for user:', user.id);
+        
+        // Use our new authenticated API client
+        const response = await apiClient.post('/api/check_user_exist', {
           privy_id: user.id
         });
 
+        console.log('✅ Referral data received:', response.data);
+
         if (response.data && response.data.exists === 'yes') {
-          setBalanceLoading(false);
           setReferralCount(response.data.user.referral_count || 0);
           setreferralreward(response.data.user.referral_rewards_earned || 0);
-
+          
+          toast({
+            title: "✅ Referral Data Loaded",
+            description: `${response.data.user.referral_count || 0} referrals used`,
+          });
+        } else {
+          console.log('⚠️ User does not exist in database');
+          toast({
+            title: "⚠️ User Not Found",
+            description: "Please complete signup first",
+            variant: "destructive"
+          });
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("❌ Error fetching referral count:", error);
+        
+        // Enhanced error handling
+        if (error.response?.status === 401) {
+          toast({
+            title: "🔐 Authentication Failed",
+            description: "Please try refreshing the page",
+            variant: "destructive"
+          });
+        } else if (error.response?.status === 403) {
+          toast({
+            title: "🚫 Access Denied",
+            description: "Invalid authentication token",
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "❌ Error Loading Data",
+            description: error.message || "Please try again later",
+            variant: "destructive"
+          });
+        }
+      } finally {
+        setBalanceLoading(false);
       }
     };
 
     fetchReferral();
-  }, [user?.id]);
+  }, [user?.id, toast]);
 
   const handleCopyCode = async () => {
     try {
@@ -128,7 +173,6 @@ const Referrals = () => {
               ? <RefreshCw className="h-4 w-4 animate-spin" />
               : `${(referral_count)}/3`}
           </span>
-
         </div>
       </motion.div>
 
@@ -187,7 +231,7 @@ const Referrals = () => {
         >
           <Copy className="w-5 h-5 text-golden-light" />
           <span className="text-xl font-mono font-bold text-golden-light tracking-wider">
-            {referralCode}
+            {referralCode || 'Loading...'}
           </span>
         </div>
         <p className="text-sm text-golden-light font-extralight opacity-60 text-center mt-3">
@@ -237,3 +281,5 @@ const Referrals = () => {
 };
 
 export default Referrals;
+
+

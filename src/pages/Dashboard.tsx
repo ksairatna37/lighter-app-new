@@ -15,6 +15,7 @@ import timer from "@/assets/timer.png";
 import { useWallet, useWalletStore } from '@/hooks/useWallet';
 import axios from "axios";
 import { toast } from "@/hooks/use-toast";
+import apiClient from "@/lib/apiClient";
 
 // Interface for point price data from API
 interface LighterPointData {
@@ -329,7 +330,7 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
 
     try {
 
-      const response = await axios.post("/api/get_referal_code", {
+      const response = await apiClient.post("/api/get_referal_code", {
         id: userId,
         privy_id: user.id
       });
@@ -383,7 +384,7 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
     setPriceLoading(true);
 
     try {
-      const response = await axios.get("/api/points/price");
+      const response = await apiClient.get("/api/points/price");
 
       if (response.data && response.data.data) {
         const priceData = {
@@ -518,8 +519,8 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
       const limit = 100;
 
       const [pointsResponse, transactionsResponse] = await Promise.all([
-        axios.get(`/api/points/history/${userId}?limit=${limit}`),
-        axios.get(`/api/transactions/${userId}?limit=${limit}`)
+        apiClient.get(`/api/points/history/${userId}?limit=${limit}`),
+        apiClient.get(`/api/transactions/${userId}?limit=${limit}`)
       ]);
 
 
@@ -563,12 +564,6 @@ const Dashboard = ({ initialTime = 3600, mode = "countdown" }) => {
     } catch (error) {
       console.error("❌ Error fetching transaction history:", error);
 
-      if (axios.isAxiosError(error)) {
-        console.error("Error details:", {
-          status: error.response?.status,
-          message: error.response?.data?.error || error.message
-        });
-      }
     } finally {
       setHistoryLoading(false);
     }

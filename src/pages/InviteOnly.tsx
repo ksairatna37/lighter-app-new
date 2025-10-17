@@ -10,6 +10,7 @@ import slice from "@/assets/Slice.png";
 import { useWallet, useWalletStore } from '@/hooks/useWallet';
 import { usePrivy } from '@privy-io/react-auth';
 import axios from 'axios';
+import apiClient from "@/lib/apiClient";
 
 const InviteOnly = () => {
   const navigate = useNavigate();
@@ -66,7 +67,7 @@ const InviteOnly = () => {
     };
 
 
-    const response = await axios.post('/api/register_new_user', requestData, {
+    const response = await apiClient.post('/api/register_new_user', requestData, {
       headers: headers
     });
 
@@ -184,41 +185,6 @@ const InviteOnly = () => {
   }
 };
 
-  // Test server connection
-  const testServerConnection = async () => {
-    try {
-      const response = await axios.get('/api/health');
-      toast({
-        title: "Server Connected",
-        description: "Server is running and accessible",
-      });
-    } catch (error) {
-      console.error('❌ Server health check failed:', error);
-      toast({
-        title: "Server Not Accessible",
-        description: "Cannot connect to server. Please check if your Express server is running.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const benefits = [
-    {
-      icon: Star,
-      title: "Exclusive Access",
-      description: "Be among the first to farm Lighter Points"
-    },
-    {
-      icon: Gift,
-      title: "Higher Rewards",
-      description: "Early adopters get bonus multipliers"
-    },
-    {
-      icon: Users,
-      title: "Priority Support",
-      description: "Direct access to our team"
-    }
-  ];
 
   return (
     <div className="min-h-screen bg-background flex flex-col py-6 px-4">

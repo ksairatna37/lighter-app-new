@@ -17,6 +17,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import axios from "axios";
 import BuySuccessModal from './BuySuccessModal';
 import SellSuccessModal from './SellSuccessModal';
+import apiClient from "@/lib/apiClient";
 
 // Types for the trading responses
 interface BuySuccessData {
@@ -185,7 +186,7 @@ const Trade = () => {
         'Accept': 'application/json',
       };
 
-      const response = await axios.post('/api/points/buy', requestData, { headers });
+      const response = await apiClient.post('/api/points/buy', requestData, { headers });
 
       if (response.status === 200 && response.data?.success) {
         setBuySuccessData(response.data.data);
@@ -280,7 +281,7 @@ const Trade = () => {
         'Accept': 'application/json',
       };
 
-      const response = await axios.post('/api/points/sell', requestData, { headers });
+      const response = await apiClient.post('/api/points/sell', requestData, { headers });
 
       if (response.status === 200 && response.data?.success) {
         setSellSuccessData(response.data.data);

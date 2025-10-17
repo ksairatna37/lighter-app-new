@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useWallet, useWalletStore } from '@/hooks/useWallet';
 import { usePrivy } from '@privy-io/react-auth';
+import apiClient from '@/lib/apiClient';
 
 const WalletConnectSuccess = () => {
   const navigate = useNavigate();
@@ -82,7 +83,7 @@ const WalletConnectSuccess = () => {
     setIsChecking(true);
 
     try {
-      const response = await axios.post('/api/check_user_exist', { 
+      const response = await apiClient.post('/api/check_user_exist', { 
         privy_id: user.id 
       });
 

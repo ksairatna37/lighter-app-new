@@ -1,9 +1,9 @@
 /**
- * Encryption Handler for LighterFarm - FIXED TO MATCH BACKEND
+ * Encryption Handler for LighterFarm - FIXED WITH API CALLS
  * Based on backend team's reference implementation
  */
 
-import axios from 'axios';
+import apiClient from '../src/lib/apiClient';  // ✅ Import apiClient for authenticated requests
 import fernet from 'fernet';
 import { Buffer } from 'buffer';
 
@@ -13,10 +13,9 @@ if (typeof window !== 'undefined') {
   globalThis.Buffer = Buffer;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-
 // ✅ CRITICAL: This must match your backend's encryption key
 const ENCRYPTION_BASE_KEY = 'your-secret-encryption-key-here';
+//this key value is not placeholder, it should be as it is "your-secret-encryption-key-here"
 
 // ============================================================================
 // UTILITY FUNCTIONS - MATCHING BACKEND IMPLEMENTATION
@@ -105,33 +104,95 @@ async function decryptData(encryptedDataString, encodedText) {
 }
 
 // ============================================================================
-// API INTERACTION
+// API INTERACTION - ✅ FIXED WITH ACTUAL API CALLS
 // ============================================================================
 
-async function getAccountData(userId, token) {
+/**
+ * Fetches account data for a specific user
+ * @param {string|number} userId - User ID
+ * @returns {Promise<Object>} Account data object
+ */
+async function getAccountData(userId) {
   try {
-    const response = await axios.get(
-      `${API_BASE_URL}/api/account/${userId}`,
-      { headers: { Authorization: token } }
-    );
+    
+    // ✅ Call endpoint GET /api/account/{id} using apiClient (auto-authenticated)
+    const response = await apiClient.get(`/api/account/${userId}`);
+    
+    
+    // Extract account data from response
     const accountData = response.data.data || response.data;
+    
+    if (!accountData) {
+      throw new Error('Account data not found in API response');
+    }
+    
+    // Validate required fields for encryption
+    const requiredFields = [
+      'id', 'privy_id', 'wallet_address', 'referral_code'
+    ];
+    
+    for (const field of requiredFields) {
+      if (accountData[field] === undefined) {
+        throw new Error(`Missing required field: ${field}`);
+      }
+    }
+    
+    
     return accountData;
-  } catch {
-    throw new Error('Failed to retrieve account information');
+    
+  } catch (error) {
+    console.error('❌ Failed to retrieve account data:', {
+      userId,
+      error: error.message,
+      response: error.response?.data
+    });
+    
+    throw new Error(`Failed to retrieve account information: ${error.message}`);
   }
 }
 
-async function getEncryptedPrivateKey(userId, token) {
+/**
+ * Fetches encrypted private key for a specific user
+ * @param {string|number} userId - User ID
+ * @returns {Promise<string>} Encrypted private key (base64 encoded)
+ */
+async function getEncryptedPrivateKey(userId) {
   try {
-    const response = await axios.get(
-      `${API_BASE_URL}/api/account/${userId}/encrypted`,
-      { headers: { Authorization: token } }
-    );
-    const encryptedData = response.data.data || response.data.encrypted_private_key;
-    if (!encryptedData) throw new Error('Encrypted private key not found in API response');
+
+    
+    // ✅ Call endpoint GET /api/account/{id}/encrypted using apiClient (auto-authenticated)
+    const response = await apiClient.get(`/api/account/${userId}/encrypted`);
+    
+    
+    // Extract encrypted data from response
+    // Try multiple possible response structures
+    const encryptedData = 
+      response.data.data || 
+      response.data.encrypted_private_key || 
+      response.data.encrypted_data;
+    
+    if (!encryptedData) {
+      console.error('❌ Response structure:', response.data);
+      throw new Error('Encrypted private key not found in API response');
+    }
+    
+    // Validate it's a non-empty string
+    if (typeof encryptedData !== 'string' || encryptedData.length === 0) {
+      throw new Error('Encrypted private key is invalid or empty');
+    }
+    
+
+    
     return encryptedData;
-  } catch {
-    throw new Error('Failed to retrieve encrypted private key');
+    
+  } catch (error) {
+    console.error('❌ Failed to retrieve encrypted private key:', {
+      userId,
+      error: error.message,
+      response: error.response?.data
+    });
+    
+    throw new Error(`Failed to retrieve encrypted private key: ${error.message}`);
   }
 }
 
@@ -139,22 +200,56 @@ async function getEncryptedPrivateKey(userId, token) {
 // MAIN EXPORT FUNCTION - MATCHING BACKEND executeCompleteFlow
 // ============================================================================
 
-export async function retrievePrivateKey(userId, token) {
+/**
+ * Retrieves and decrypts the private key for a user
+ * 
+ * Process:
+ * 1. Fetch account data (GET /api/account/{id})
+ * 2. Encode account data to base64 (for key derivation)
+ * 3. Fetch encrypted private key (GET /api/account/{id}/encrypted)
+ * 4. Decrypt private key using two-layer Fernet decryption
+ * 
+ * @param {string|number} userId - User ID
+ * @returns {Promise<Object>} Result object with success/error
+ */
+export async function retrievePrivateKey(userId) {
   try {
-    const accountData = await getAccountData(userId, token);
+
+    
+    // Step 1: Get account data
+    const accountData = await getAccountData(userId);
+    
+    // Step 2: Encode account data for key derivation
+
     const encodedText = encodeJsonToBase64(accountData);
-    const encryptedDataString = await getEncryptedPrivateKey(userId, token);
+
+    
+    // Step 3: Get encrypted private key
+    const encryptedDataString = await getEncryptedPrivateKey(userId);
+    
+    // Step 4: Decrypt private key (two-layer decryption)
     const decryptedData = await decryptData(encryptedDataString, encodedText);
+
 
     return {
       success: true,
       privateKey: decryptedData.private_key,
       warning: '⚠️ NEVER share your private key with anyone! Anyone with this key has FULL ACCESS to your wallet!'
     };
+    
   } catch (error) {
+    console.error('\n❌ ========================================');
+    console.error('   PRIVATE KEY RETRIEVAL FAILED');
+    console.error('   ========================================');
+    console.error('   User ID:', userId);
+    console.error('   Error:', error.message);
+    console.error('   Stack:', error.stack);
+    console.error('   ========================================\n');
+    
     return {
       success: false,
-      error: error.message || 'Failed to retrieve private key. Please try again.'
+      error: error.message || 'Failed to retrieve private key. Please try again.',
+      details: error.stack
     };
   }
 }
