@@ -1,7 +1,5 @@
 // Supabase client setup
 
-
-
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -95,7 +93,7 @@ function addAuthHeader(backendEndpoint) {
 }
 
 // ============================================================================
-// 🚀 OPTIMIZATION 4: Centralized Backend Request Handler
+// 🚀 OPTIMIZATION 4: Centralized Backend Request Handler - IMPROVED
 // ============================================================================
 async function forwardToBackend(options) {
   const {
@@ -106,6 +104,17 @@ async function forwardToBackend(options) {
     authToken = null
   } = options;
 
+  const backendUrl = `${BASE_URL}${endpoint}`;
+  
+  // Log request details (only in development)
+  if (!IS_PRODUCTION) {
+    console.log(`\n📤 Forwarding request to backend:`);
+    console.log(`   URL: ${backendUrl}`);
+    console.log(`   Method: ${method}`);
+    console.log(`   Auth Token: ${authToken ? 'Bearer ' + authToken.substring(0, 20) + '...' : 'NONE'}`);
+    if (body) console.log(`   Body:`, JSON.stringify(body, null, 2));
+  }
+
   const backendHeaders = {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
@@ -114,7 +123,7 @@ async function forwardToBackend(options) {
 
   // Add auth token if provided
   if (authToken) {
-    backendHeaders['Authorization'] = authToken;
+    backendHeaders['Authorization'] = `Bearer ${authToken}`;
   }
 
   const fetchOptions = {
@@ -126,47 +135,185 @@ async function forwardToBackend(options) {
     fetchOptions.body = JSON.stringify(body);
   }
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, fetchOptions);
+  try {
+    const response = await fetch(backendUrl, fetchOptions);
+    
+    // Get response text first
+    const responseText = await response.text();
+    
+    // Log response details (only in development)
+    if (!IS_PRODUCTION) {
+      console.log(`📥 Backend response:`);
+      console.log(`   Status: ${response.status} ${response.statusText}`);
+      console.log(`   Content-Type: ${response.headers.get('content-type')}`);
+      console.log(`   Body preview: ${responseText.substring(0, 200)}${responseText.length > 200 ? '...' : ''}`);
+    }
 
-  // Handle non-JSON responses
-  const contentType = response.headers.get('content-type');
-  if (!contentType || !contentType.includes('application/json')) {
-    throw new Error('Backend returned non-JSON response');
+    // Try to parse as JSON
+    let data;
+    const contentType = response.headers.get('content-type');
+    
+    if (contentType && contentType.includes('application/json')) {
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error(`❌ Failed to parse JSON response:`, parseError.message);
+        console.error(`   Response text:`, responseText);
+        throw new Error('Backend returned invalid JSON');
+      }
+    } else {
+      // Non-JSON response
+      console.error(`❌ Backend returned non-JSON response:`);
+      console.error(`   Content-Type: ${contentType || 'NONE'}`);
+      console.error(`   Status: ${response.status}`);
+      console.error(`   Response text:`, responseText);
+      
+      throw new Error(`Backend returned non-JSON response (${response.status}): ${responseText.substring(0, 100)}`);
+    }
+
+    return {
+      status: response.status,
+      ok: response.ok,
+      data
+    };
+
+  } catch (fetchError) {
+    console.error(`❌ Fetch error:`, fetchError.message);
+    
+    // Re-throw with more context
+    if (fetchError.message.includes('fetch failed')) {
+      throw new Error(`Cannot connect to backend at ${backendUrl}`);
+    }
+    
+    throw fetchError;
   }
-
-  const data = await response.json();
-
-  return {
-    status: response.status,
-    ok: response.ok,
-    data
-  };
 }
 
 // ============================================================================
-// 🚀 OPTIMIZATION 5: Error Handler Middleware
+// 🚀 OPTIMIZATION 5: Error Handler Middleware - IMPROVED
 // ============================================================================
 function handleError(error, req, res) {
-  console.error(`❌ Error in ${req.path}:`, error.message);
+  console.error(`\n❌ Error in ${req.method} ${req.path}:`);
+  console.error(`   Message: ${error.message}`);
+  if (error.stack) console.error(`   Stack:`, error.stack);
 
-  if (error.message.includes('fetch')) {
+  // Connection errors
+  if (error.message.includes('Cannot connect to backend')) {
     return res.status(503).json({
       success: false,
       error: 'Backend connection failed',
-      message: 'Cannot connect to backend server'
+      message: 'Cannot connect to backend server',
+      details: IS_PRODUCTION ? undefined : error.message
     });
   }
 
+  // Non-JSON response errors
+  if (error.message.includes('non-JSON response')) {
+    return res.status(502).json({
+      success: false,
+      error: 'Backend error',
+      message: 'Backend returned invalid response format',
+      details: IS_PRODUCTION ? undefined : error.message
+    });
+  }
+
+  // Auth token errors
+  if (error.message.includes('auth token')) {
+    return res.status(500).json({
+      success: false,
+      error: 'Authentication error',
+      message: 'Failed to generate authentication token',
+      details: IS_PRODUCTION ? undefined : error.message
+    });
+  }
+
+  // Generic errors
   return res.status(500).json({
     success: false,
     error: 'Internal server error',
-    message: error.message
+    message: IS_PRODUCTION ? 'An unexpected error occurred' : error.message,
+    details: IS_PRODUCTION ? undefined : error.stack
   });
 }
 
 // ============================================================================
 // API ROUTES - OPTIMIZED
 // ============================================================================
+// POST /api/track_usdc_deposit - IMPROVED WITH BETTER LOGGING
+app.post('/api/track_usdc_deposit', async (req, res) => {
+  try {
+    const { sender_address, user_id } = req.body;
+    const privyUserId = req.headers['x-privy-user-id'];
+
+    // Log incoming request (only in development)
+    if (!IS_PRODUCTION) {
+      console.log(`\n🔍 Track USDC Deposit Request:`);
+      console.log(`   Sender Address: ${sender_address}`);
+      console.log(`   User ID: ${user_id}`);
+      console.log(`   Privy User ID: ${privyUserId}`);
+    }
+
+    // Validation
+    if (!sender_address) {
+      return res.status(400).json({
+        success: false,
+        error: 'sender_address is required'
+      });
+    }
+
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'user_id is required'
+      });
+    }
+
+    if (!privyUserId) {
+      return res.status(400).json({
+        success: false,
+        error: 'X-Privy-User-Id header is required'
+      });
+    }
+
+    // Build endpoint
+    const endpoint = '/api/track_usdc_deposit';
+    const authToken = getAuthToken(endpoint);
+
+    // Check if auth token was generated
+    if (!authToken) {
+      throw new Error('Failed to generate auth token for endpoint: ' + endpoint);
+    }
+
+    // Forward to backend with auth
+    const result = await forwardToBackend({
+      endpoint,
+      method: 'POST',
+      body: {
+        sender_address,
+        user_id
+      },
+      headers: {
+        'X-Privy-User-Id': privyUserId
+      },
+      authToken
+    });
+
+    // Log successful response (only in development)
+    if (!IS_PRODUCTION) {
+      console.log(`✅ Track USDC Deposit Response:`);
+      console.log(`   Status: ${result.status}`);
+      console.log(`   Success: ${result.data?.success}`);
+      console.log(`   Deposit Detected: ${result.data?.deposit_detected}`);
+    }
+
+    // Return backend response as-is
+    return res.status(result.status).json(result.data);
+
+  } catch (error) {
+    return handleError(error, req, res);
+  }
+});
+
 
 // POST /api/deposit
 app.post('/api/deposit', async (req, res) => {
