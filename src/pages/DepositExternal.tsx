@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Container } from "@/components/layout/Container";
 import { BottomNavigation } from "@/components/layout/BottomNavigation";
 import { Button } from "@/components/ui/button";
@@ -22,14 +22,31 @@ import logo from "@/assets/logo.png";
 import { usePrivy } from "@privy-io/react-auth";
 import { ethers } from "ethers";
 import QRCode from "qrcode";
+import axios from "axios";
+import apiClient from "@/lib/apiClient";
 
 // ===== TYPES =====
 interface TrackingState {
   status: 'tracking' | 'completed' | 'expired';
   externalWalletAddress: string;
-  selectedAmount: number | null;
   startedAt: string; // ISO timestamp
   expiresAt: string; // ISO timestamp
+  userId: string;
+}
+
+interface DepositCheckResponse {
+  success: boolean;
+  message: string;
+  deposit_detected: boolean;
+  usdc_amount?: number;
+  usdl_amount?: number;
+  transaction_hash?: string;
+  new_balance?: number;
+  exchange_rate?: number;
+  recipient_address?: string;
+  sender_address?: string;
+  timestamp?: string;
+  monitoring_duration?: number;
 }
 
 const DepositExternal = () => {
@@ -39,7 +56,6 @@ const DepositExternal = () => {
 
   // Form states
   const [externalWalletAddress, setExternalWalletAddress] = useState("");
-  const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
   const [isValidAddress, setIsValidAddress] = useState(false);
   const [addressError, setAddressError] = useState("");
 
@@ -50,17 +66,17 @@ const DepositExternal = () => {
   const [isDepositStarted, setIsDepositStarted] = useState(false);
   const [timeLeft, setTimeLeft] = useState(600); // 10 minutes in seconds
   const [isRestoringState, setIsRestoringState] = useState(true);
+  const [pollCount, setPollCount] = useState(0);
+  const [lastCheckTime, setLastCheckTime] = useState<Date | null>(null);
 
-  // Our receiving address (replace with actual address from backend)
-  const RECEIVING_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+  // Refs for polling
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Amount options with points
-  const amounts = [
-    { value: 100, points: 24.9 },
-    { value: 250, points: 62.3 },
-    { value: 500, points: 124.7 },
-    { value: 1000, points: 249.4 },
-  ];
+  // Our receiving address (Backend's deposit address)
+  const RECEIVING_ADDRESS = "0xbcb711FaE189f599Cb42D1704B39f0EA4500FBF8";
+
+  // API base URL
 
   // ===== LOCALSTORAGE UTILITIES =====
   const getStorageKey = () => {
@@ -71,12 +87,40 @@ const DepositExternal = () => {
   const saveTrackingState = (state: TrackingState) => {
     const key = getStorageKey();
     if (!key) return;
-    
+
     try {
       localStorage.setItem(key, JSON.stringify(state));
       console.log('✅ Tracking state saved to localStorage:', state);
     } catch (error) {
       console.error('❌ Failed to save tracking state:', error);
+    }
+  };
+
+  const getUserIdFromLocalStorage = (): string | null => {
+    if (!user?.id) return null;
+
+    try {
+      const localDataKey = user.id; // user.id is the key
+      const localDataStr = localStorage.getItem(localDataKey);
+
+      if (!localDataStr) {
+        console.error('❌ No localStorage data found for key:', localDataKey);
+        return null;
+      }
+
+      const localData = JSON.parse(localDataStr);
+      const userId = localData?.id; // Get the id field from the stored data
+
+      if (!userId) {
+        console.error('❌ No id field found in localStorage data');
+        return null;
+      }
+
+      console.log('✅ Retrieved userId from localStorage:', userId);
+      return userId;
+    } catch (error) {
+      console.error('❌ Failed to parse localStorage data:', error);
+      return null;
     }
   };
 
@@ -109,6 +153,126 @@ const DepositExternal = () => {
     }
   };
 
+  // ===== BACKEND API INTEGRATION =====
+  const checkDepositStatus = async (
+    senderAddress: string,
+    privyUserId: string // Now called privyUserId for clarity
+  ): Promise<DepositCheckResponse | null> => {
+
+    try {
+      const userId = getUserIdFromLocalStorage();
+      if (!userId) {
+        // Show error and return
+        return null;
+      }
+      console.log(`📡 Checking deposit status... (Poll #${pollCount + 1})`);
+
+      const response = await apiClient.post<DepositCheckResponse>(
+        `/api/track_usdc_deposit`,
+        {
+          sender_address: senderAddress,
+          user_id: userId,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Privy-User-Id': privyUserId,
+          },
+        }
+      );
+
+      setLastCheckTime(new Date());
+      setPollCount(prev => prev + 1);
+
+      console.log('📊 Deposit check response:', response.data);
+      return response.data;
+    } catch (error: unknown) {
+      console.error('❌ Deposit check failed:', error);
+
+      if (axios.isAxiosError(error)) {
+        // ✅ Type-safe: TS now knows error.response exists
+        if (error.response?.data?.deposit_detected === false) {
+          console.log('⏳ No deposit detected yet, continuing to poll...');
+          return error.response.data;
+        }
+      }
+
+      toast({
+        title: 'Check Failed',
+        description: 'Failed to check deposit status. Retrying...',
+        variant: 'destructive',
+      });
+
+      return null;
+    }
+  };
+
+
+  // ===== POLLING MECHANISM =====
+  const startPolling = (senderAddress: string, userId: string) => {
+    console.log('🔄 Starting deposit polling (every 50 seconds)...');
+    setPollCount(0);
+
+    // Immediate first check
+    checkDepositStatus(senderAddress, userId).then(handleDepositCheckResult);
+
+    // Poll every 50 seconds
+    pollIntervalRef.current = setInterval(async () => {
+      const result = await checkDepositStatus(senderAddress, userId);
+      handleDepositCheckResult(result);
+    }, 50000); // 50 seconds
+  };
+
+  const stopPolling = () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+      console.log('🛑 Polling stopped');
+    }
+  };
+
+  const handleDepositCheckResult = (result: DepositCheckResponse | null) => {
+    if (!result) return;
+
+    if (result.deposit_detected && result.success) {
+      console.log('✅ DEPOSIT DETECTED!');
+
+      // Stop polling
+      stopPolling();
+
+      // Clear localStorage
+      clearTrackingState();
+
+      // Show success toast
+      toast({
+        title: "🎉 Deposit Detected!",
+        description: `${result.usdc_amount} USDC received successfully`,
+      });
+
+      // Navigate to success page
+      setTimeout(() => {
+        navigate("/deposit/success", {
+          state: {
+            amount: result.usdc_amount,
+            pointsEarned: result.usdl_amount || 0,
+            pointsValue: ((result.usdl_amount || 0) * 4.005).toFixed(2),
+            newBalance: result.new_balance || 0,
+            transactionHash: result.transaction_hash || "N/A",
+            blockNumber: null,
+            gasUsed: null,
+            referralInfo: null,
+            date: new Date().toLocaleDateString('en-US', {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            })
+          }
+        });
+      }, 1500);
+    }
+  };
+
   // ===== RESTORE STATE ON MOUNT =====
   useEffect(() => {
     if (!user?.id) {
@@ -118,7 +282,7 @@ const DepositExternal = () => {
 
     const restoreState = () => {
       const savedState = loadTrackingState();
-      
+
       if (!savedState) {
         setIsRestoringState(false);
         return;
@@ -145,10 +309,12 @@ const DepositExternal = () => {
       // Restore state
       console.log('🔄 Resuming tracking session...');
       setExternalWalletAddress(savedState.externalWalletAddress);
-      setSelectedAmount(savedState.selectedAmount);
-      setIsValidAddress(true); // Already validated before
+      setIsValidAddress(true);
       setIsDepositStarted(true);
       setTimeLeft(remainingSeconds);
+
+      // Resume polling
+      startPolling(savedState.externalWalletAddress, savedState.userId);
 
       toast({
         title: "🔄 Session Resumed",
@@ -159,6 +325,14 @@ const DepositExternal = () => {
     };
 
     restoreState();
+
+    // Cleanup on unmount
+    return () => {
+      stopPolling();
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    };
   }, [user?.id]);
 
   // Validate Ethereum address
@@ -215,10 +389,9 @@ const DepositExternal = () => {
   useEffect(() => {
     if (!isDepositStarted || timeLeft <= 0) return;
 
-    const timer = setInterval(() => {
+    timerIntervalRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
-          clearInterval(timer);
           handleTimerExpired();
           return 0;
         }
@@ -226,11 +399,18 @@ const DepositExternal = () => {
       });
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, [isDepositStarted, timeLeft]);
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    };
+  }, [isDepositStarted]);
 
   // Handle timer expiration
   const handleTimerExpired = () => {
+    // Stop polling
+    stopPolling();
+
     // Clear localStorage
     clearTrackingState();
 
@@ -244,8 +424,9 @@ const DepositExternal = () => {
     setIsDepositStarted(false);
     setTimeLeft(600);
     setExternalWalletAddress("");
-    setSelectedAmount(null);
     setIsValidAddress(false);
+    setPollCount(0);
+    setLastCheckTime(null);
   };
 
   // Format time display (MM:SS)
@@ -286,10 +467,10 @@ const DepositExternal = () => {
 
   // Handle Start Deposit button click
   const handleStartDeposit = () => {
-    if (!isValidAddress || !externalWalletAddress || !selectedAmount) {
+    if (!isValidAddress || !externalWalletAddress) {
       toast({
         title: "Missing Information",
-        description: "Please enter a valid wallet address and select an amount",
+        description: "Please enter a valid wallet address",
         variant: "destructive",
       });
       return;
@@ -303,6 +484,15 @@ const DepositExternal = () => {
   const handleConfirmDeposit = async () => {
     setShowConfirmModal(false);
 
+    if (!user?.id) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to continue",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Calculate timestamps
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 10 * 60 * 1000); // 10 minutes from now
@@ -311,9 +501,9 @@ const DepositExternal = () => {
     const trackingState: TrackingState = {
       status: 'tracking',
       externalWalletAddress,
-      selectedAmount,
       startedAt: now.toISOString(),
-      expiresAt: expiresAt.toISOString()
+      expiresAt: expiresAt.toISOString(),
+      userId: user.id
     };
     saveTrackingState(trackingState);
 
@@ -322,73 +512,16 @@ const DepositExternal = () => {
     setTimeLeft(600); // Reset to 10 minutes
 
     toast({
-      title: "🚀 Deposit Started",
+      title: "🚀 Deposit Tracking Started",
       description: "Send USDC to the address below within 10 minutes",
     });
 
-    // TODO: Call backend API to start deposit tracking
-    /*
-    try {
-      const response = await axios.post('/api/deposit/external/start', {
-        user_id: user.id,
-        external_wallet_address: externalWalletAddress,
-        amount: selectedAmount,
-        receiving_address: RECEIVING_ADDRESS
-      }, {
-        headers: {
-          'X-Privy-User-Id': user.id,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.data.success) {
-        // Backend will track transaction for 10 minutes
-        console.log('✅ Deposit tracking started:', response.data);
-      }
-    } catch (error) {
-      console.error("❌ Failed to start deposit tracking:", error);
-      // Clear localStorage if API fails
-      clearTrackingState();
-      setIsDepositStarted(false);
-      
-      toast({
-        title: "Error",
-        description: "Failed to start deposit. Please try again.",
-        variant: "destructive",
-      });
-    }
-    */
-  };
-
-  // ===== SIMULATE DEPOSIT SUCCESS (for testing) =====
-  // Remove this in production - backend will handle detection
-  const handleDepositSuccess = () => {
-    // Clear tracking state
-    clearTrackingState();
-
-    // Navigate to success page with data
-    navigate("/deposit/success", {
-      state: {
-        amount: selectedAmount,
-        pointsEarned: 100, // Replace with actual from API
-        pointsValue: (100 * 4.005).toFixed(2),
-        newBalance: 500, // Replace with actual from API
-        transactionHash: "0x123456...", // Replace with actual from API
-        blockNumber: 12345678,
-        gasUsed: 45000,
-        referralInfo: null,
-        date: new Date().toLocaleDateString('en-US', {
-          weekday: 'short',
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric'
-        })
-      }
-    });
+    // Start polling backend API
+    startPolling(externalWalletAddress, user.id);
   };
 
   // Check if CTA button should be enabled
-  const isCTAEnabled = isValidAddress && externalWalletAddress.length > 0 && selectedAmount !== null;
+  const isCTAEnabled = isValidAddress && externalWalletAddress.length > 0;
 
   // Show loading state while restoring
   if (isRestoringState) {
@@ -445,11 +578,16 @@ const DepositExternal = () => {
               </div>
             </div>
             <div className="text-right">
-              <p className="text-white/80 text-xs">Status</p>
+              <p className="text-white/80 text-xs">Checks: {pollCount}</p>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span className="text-white font-semibold text-sm">Tracking...</span>
+                <span className="text-white font-semibold text-sm">Tracking</span>
               </div>
+              {lastCheckTime && (
+                <p className="text-white/60 text-xs mt-1">
+                  {lastCheckTime.toLocaleTimeString()}
+                </p>
+              )}
             </div>
           </div>
         </motion.div>
@@ -468,8 +606,8 @@ const DepositExternal = () => {
               How External Wallet Deposit Works
             </h3>
             <p className="text-golden-light/70 text-xs leading-relaxed">
-              Enter your external wallet address, we'll track your USDC deposit for 10 minutes.
-              Send from the exact address you entered to ensure proper matching.
+              Enter your external wallet address and we'll track your USDC deposit for 10 minutes.
+              Auto-detected when you send!
             </p>
           </div>
         </div>
@@ -507,10 +645,10 @@ const DepositExternal = () => {
             onChange={handleAddressChange}
             disabled={isDepositStarted}
             className={`h-12 bg-background border-2 ${externalWalletAddress && !isValidAddress
-                ? 'border-red-500'
-                : isValidAddress
-                  ? 'border-green-500'
-                  : 'border-border'
+              ? 'border-red-500'
+              : isValidAddress
+                ? 'border-green-500'
+                : 'border-border'
               } text-golden-light placeholder:text-muted-foreground`}
           />
           {externalWalletAddress && (
@@ -544,47 +682,17 @@ const DepositExternal = () => {
             <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <span>
               <strong>Important:</strong> Send USDC only from the address you entered above.
-              Deposits from different addresses may not be matched.
             </span>
           </p>
         </div>
       </motion.div>
 
-      {/* Choose Amount */}
-      {!isDepositStarted && (
-        <motion.div
-          className="bg-card backdrop-blur-sm border border-border rounded-2xl p-4 mb-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <h3 className="text-golden-light text-lg font-semibold mb-4">Choose Amount:</h3>
-          <div className="grid grid-cols-4 gap-3">
-            {amounts.map((amount) => (
-              <button
-                key={amount.value}
-                onClick={() => setSelectedAmount(amount.value)}
-                disabled={isDepositStarted}
-                className={`bg-[#D4B679]/90 hover:bg-[#D4B679] rounded-xl p-4 flex flex-col items-center justify-center transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${selectedAmount === amount.value ? 'ring-2 ring-golden-light scale-105' : ''
-                  }`}
-              >
-                <span className="text-xl font-bold text-background">${amount.value}</span>
-                <span className="text-xs text-background/70 mt-1">(~{amount.points}pt)</span>
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-golden-light/60 text-center mt-3">
-            Select amount to track your deposit
-          </p>
-        </motion.div>
-      )}
-
-      {/* Receiving Address Section - Shown after form filled or deposit started */}
+      {/* Receiving Address Section */}
       {(isValidAddress || isDepositStarted) && (
         <motion.div
           className={`border-2 rounded-2xl p-4 mb-6 ${isDepositStarted
-              ? 'border-green-500 bg-green-500/5'
-              : 'bg-card backdrop-blur-sm border-border'
+            ? 'border-green-500 bg-green-500/5'
+            : 'bg-card backdrop-blur-sm border-border'
             }`}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -601,24 +709,13 @@ const DepositExternal = () => {
                 onClick={() => setShowQR(!showQR)}
                 className="h-8 text-xs bg-golden-light/20 text-golden-light hover:bg-golden-light/30"
               >
-                {showQR ? <FileText className="w-4 h-4 " /> : <QrCode className="w-4 h-4" />}
+                {showQR ? <FileText className="w-4 h-4" /> : <QrCode className="w-4 h-4" />}
               </Button>
             </div>
           </div>
 
-          {/* Address warning */}
-          <div className="bg-orange-500/10 border border-orange-400/30 rounded-lg p-3 mb-4">
-            <p className="text-orange-600 dark:text-orange-400 text-xs flex items-start gap-2">
-              <Clock className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <span>
-                <strong>This address is valid for {formatTime(timeLeft)}.</strong> Send USDC before time expires.
-              </span>
-            </p>
-          </div>
-
           {/* Display mode toggle */}
           {!showQR ? (
-            // Text format
             <div>
               <div
                 className="border-2 border-dashed border-golden-light/30 rounded-xl p-4 cursor-pointer hover:border-golden-light/50 transition-colors"
@@ -636,7 +733,6 @@ const DepositExternal = () => {
               </p>
             </div>
           ) : (
-            // QR format
             <div className="flex flex-col items-center">
               {qrCodeDataUrl ? (
                 <img
@@ -724,8 +820,7 @@ const DepositExternal = () => {
             Start Deposit Tracking
           </Button>
           <p className="text-xs text-golden-light/60 text-center mt-2">
-            {!isCTAEnabled && !isValidAddress && "Enter a valid wallet address to continue"}
-            {!isCTAEnabled && isValidAddress && !selectedAmount && "Select an amount to continue"}
+            {!isCTAEnabled && "Enter a valid wallet address to continue"}
           </p>
         </motion.div>
       )}
@@ -745,31 +840,20 @@ const DepositExternal = () => {
               Waiting for Your Deposit
             </h3>
             <p className="text-golden-light/70 text-sm mb-4">
-              Send USDC from your external wallet to the address above
+              Send any amount of USDC from your external wallet to the address above
             </p>
             <div className="bg-golden-light/5 rounded-lg p-3 mb-3">
               <p className="text-xs text-golden-light/60">
                 From: <span className="text-golden-light font-mono">{formatAddress(externalWalletAddress)}</span>
               </p>
-              {selectedAmount && (
-                <p className="text-xs text-golden-light/60 mt-1">
-                  Expected Amount: <span className="text-golden-light font-semibold">${selectedAmount} USDC</span>
-                </p>
-              )}
             </div>
-            <p className="text-xs text-golden-light/60 mb-4">
-              We'll automatically detect your transaction and credit your points
+            <p className="text-xs text-golden-light/60 mb-2">
+              Checking every 50 seconds for your transaction...
             </p>
-
-            {/* TEST BUTTON - Remove in production */}
-            <Button
-              onClick={handleDepositSuccess}
-              variant="outline"
-              size="sm"
-              className="border-green-500/30 text-green-500 hover:bg-green-500/10"
-            >
-              🧪 Simulate Success (Testing Only)
-            </Button>
+            <div className="flex items-center justify-center gap-2 text-xs text-golden-light/50">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+              <span>Next check in {50 - (pollCount * 50) % 50}s</span>
+            </div>
           </div>
         </motion.div>
       )}
@@ -815,12 +899,6 @@ const DepositExternal = () => {
                 <p className="text-golden-light font-mono text-sm break-all">
                   {externalWalletAddress}
                 </p>
-                {selectedAmount && (
-                  <>
-                    <p className="text-xs text-golden-light/60 mt-3 mb-1">Amount:</p>
-                    <p className="text-golden-light font-semibold">${selectedAmount} USDC</p>
-                  </>
-                )}
               </div>
 
               <div className="bg-red-500/10 border border-red-400/30 rounded-lg p-3 mb-6">

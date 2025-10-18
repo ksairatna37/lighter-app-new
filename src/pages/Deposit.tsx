@@ -105,9 +105,9 @@ const Deposit = () => {
     setBalanceLoading(true);
 
     try {
-      const response = await apiClient.post('/api/check_user_exist', {
-        privy_id: user.id
-      });
+       const response = await apiClient.post('/api/check_user_exist', {
+          privy_id: user.id
+        });
 
 
       // Handle the API response
@@ -201,6 +201,7 @@ const Deposit = () => {
     setDepositLoading(true);
 
     try {
+
       const response = await apiClient.post('/api/deposit',
         {
           id: userData.id,
